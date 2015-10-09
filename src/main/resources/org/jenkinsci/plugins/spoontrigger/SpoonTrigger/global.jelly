@@ -1,5 +1,5 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:f="/lib/form">
-    <f:section title="Spoon WebHook">
+    <f:section title="Turbo WebHook">
         <f:entry field="hookUrl">
             <f:textbox />
         </f:entry>

@@ -29,7 +29,7 @@ public class SpoonProject extends Project<SpoonProject, SpoonBuild> implements T
     public static final class DescriptorImpl extends AbstractProjectDescriptor {
 
         public String getDisplayName() {
-            return "Spoon project";
+            return "Turbo project";
         }
 
         public SpoonProject newInstance(ItemGroup parent, String name) {

@@ -1,21 +1,21 @@
 # SpoonScript Plugin
 
-This plugin integrates Jenkins with the Spoon platform. It allows Jenkins to build Spoon images and push them to the Spoon Hub.
+This plugin integrates Jenkins with the Turbo.net platform. It allows Jenkins to build Turbo.net images and push them to the Turbo.net Hub.
 
-Spoon plugin supports following features:
-* Build an image with SpoonScript
-* Push an image to the Spoon Hub
+Turbo.net plugin supports following features:
+* Build an image with TurboScript
+* Push an image to the Turbo.net Hub
 * Export an image to the local file system
 * Remove an image from the local repository
 * Trigger a build job using webhooks
 
-For more details see our plugin at [Jenkins Wiki](https://wiki.jenkins-ci.org/display/JENKINS/Spoon).
+For more details see our plugin at [Jenkins Wiki](https://wiki.jenkins-ci.org/display/JENKINS/SpoonScript+Plugin).
 
 ## License
 |                      |                                          |
 |:---------------------|:-----------------------------------------|
-| **Author:**          | Spoon (<support@spoon.net>)
-| **Copyright:**       | Copyright (c) 2015 Spoon
+| **Author:**          | Turbo.net (<support@turbo.net>)
+| **Copyright:**       | Copyright (c) 2015 Turbo.net
 | **License:**         | Apache License, Version 2.0
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at 

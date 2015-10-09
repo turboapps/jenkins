@@ -31,7 +31,7 @@ public class SpoonWebHook implements UnprotectedRootAction {
 
     public static final int HTTP_OK = 200;
 
-    private static final String URL_NAME = "spoon-webhook";
+    private static final String URL_NAME = "turbo-webhook";
     private static final Function<AbstractProject, SpoonTrigger> GET_SPOON_TRIGGER = new GetSpoonTrigger();
 
     static final String URL_VALIDATION_HEADER = "X-Jenkins-Validation";
@@ -84,7 +84,7 @@ public class SpoonWebHook implements UnprotectedRootAction {
                 this.triggerBuilds(Jenkins.getInstance(), cause);
                 break;
             case UNKNOWN:
-                String msg = String.format("Spoon WebHook event type (%s) is not supported. Only push and support events are supported", eventName);
+                String msg = String.format("Turbo WebHook event type (%s) is not supported. Only push and support events are supported", eventName);
                 throw new IllegalArgumentException(msg);
         }
     }

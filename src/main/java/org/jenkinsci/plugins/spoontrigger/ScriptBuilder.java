@@ -301,7 +301,7 @@ public class ScriptBuilder extends Builder {
             VERSION_NUMBER_VALIDATOR = Validators.chain(
                     IGNORE_NULL_VALIDATOR,
                     StringValidators.isVersionNumber());
-            CREDENTIALS_ID_VALIDATOR = StringValidators.isNotNull("Credentials are required to login to a Spoon account", Level.WARNING);
+            CREDENTIALS_ID_VALIDATOR = StringValidators.isNotNull("Credentials are required to login to a Turbo account", Level.WARNING);
             NULL_OR_SINGLE_WORD_VALIDATOR = Validators.chain(
                     IGNORE_NULL_VALIDATOR,
                     StringValidators.isSingleWord(String.format(REQUIRE_SINGLE_WORD_S, "Parameter")));
@@ -378,7 +378,7 @@ public class ScriptBuilder extends Builder {
 
         @Override
         public String getDisplayName() {
-            return "Execute SpoonScript";
+            return "Execute TurboScript";
         }
 
         private static final class CredentialValidator implements Validator<String> {

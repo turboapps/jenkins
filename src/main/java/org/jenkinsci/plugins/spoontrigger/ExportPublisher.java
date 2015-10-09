@@ -122,7 +122,7 @@ public class ExportPublisher extends SpoonBasePublisher {
 
         @Override
         public String getDisplayName() {
-            return "Export Spoon image";
+            return "Export Turbo image";
         }
     }
 }
