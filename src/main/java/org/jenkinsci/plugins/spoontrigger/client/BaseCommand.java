@@ -4,7 +4,7 @@ import hudson.util.ArgumentListBuilder;
 
 abstract class BaseCommand {
 
-    static final String SPOON_CLIENT = "spoon";
+    static final String SPOON_CLIENT = "turbo";
 
     private final ArgumentListBuilder argumentList;
 

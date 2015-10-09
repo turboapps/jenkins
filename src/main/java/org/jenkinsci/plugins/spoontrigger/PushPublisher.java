@@ -260,7 +260,7 @@ public class PushPublisher extends SpoonBasePublisher {
 
         @Override
         public String getDisplayName() {
-            return "Push Spoon image";
+            return "Push Turbo image";
         }
     }
 }

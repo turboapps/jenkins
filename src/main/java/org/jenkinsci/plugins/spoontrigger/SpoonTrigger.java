@@ -124,7 +124,7 @@ public class SpoonTrigger extends Trigger<AbstractProject<?, ?>> {
 
         @Override
         public String getDisplayName() {
-            return "Build when a Spoon webhook message is received";
+            return "Build when a Turbo webhook message is received";
         }
 
         private static final class ConnectionValidator implements Validator<String> {

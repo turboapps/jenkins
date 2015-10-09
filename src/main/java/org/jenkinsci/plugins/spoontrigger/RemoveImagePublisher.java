@@ -38,7 +38,7 @@ public class RemoveImagePublisher extends SpoonBasePublisher {
 
         @Override
         public String getDisplayName() {
-            return "Remove local Spoon image";
+            return "Remove local Turbo image";
         }
     }
 }

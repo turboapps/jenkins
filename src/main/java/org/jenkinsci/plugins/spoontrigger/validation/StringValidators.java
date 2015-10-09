@@ -13,7 +13,7 @@ public final class StringValidators {
     }
 
     public static Validator<String> isVersionNumber() {
-        return new PredicateValidator<String>(Patterns.Predicates.VERSION_NUMBER, "Spoon VM version number should consist of 4 numbers separated by dot", Level.ERROR);
+        return new PredicateValidator<String>(Patterns.Predicates.VERSION_NUMBER, "Turbo VM version number should consist of 4 numbers separated by dot", Level.ERROR);
     }
 
     public static Validator<String> isSingleWord(String failureMsg) {
