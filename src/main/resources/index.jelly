@@ -1,4 +1,4 @@
 <?jelly escape-by-default='true'?>
 <div>
-    Execute SpoonScripts, export images or push them to remote repository.
+    Execute TurboScripts, export images or push them to remote repository.
 </div>

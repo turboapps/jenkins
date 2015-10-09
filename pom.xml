@@ -10,13 +10,13 @@
         <relativePath />
     </parent>
 
-    <groupId>org.jenkinsci.plugins.spoonscript</groupId>
-    <artifactId>spoonscript</artifactId>
+    <groupId>org.jenkinsci.plugins.turboscript</groupId>
+    <artifactId>turboscript</artifactId>
     <version>1.1-SNAPSHOT</version>
     <packaging>hpi</packaging>
 
-    <name>SpoonScript Plugin</name>
-    <description>Execute SpoonScripts, export images or push them to remote repository</description>
+    <name>TurboScript Plugin</name>
+    <description>Execute TurboScripts, export images or push them to remote repository</description>
     <url>https://wiki.jenkins-ci.org/display/JENKINS/SpoonScript+Plugin</url>
     <licenses>
         <license>
@@ -36,7 +36,7 @@
         <developer>
             <id>pmateusz</id>
             <name>Mateusz Polnik</name>
-            <email>mateusz@spoon.net</email>
+            <email>mateusz@turbo.net</email>
         </developer>
     </developers>
 
