@@ -1,4 +1,4 @@
-# SpoonScript Plugin
+# TurboScript Plugin
 
 This plugin integrates Jenkins with the Turbo.net platform. It allows Jenkins to build Turbo.net images and push them to the Turbo.net Hub.
 
