@@ -10,8 +10,8 @@
         <relativePath />
     </parent>
 
-    <groupId>org.jenkinsci.plugins.turboscript</groupId>
-    <artifactId>turboscript</artifactId>
+    <groupId>org.jenkinsci.plugins.spoonscript</groupId>
+    <artifactId>spoonscript</artifactId>
     <version>1.1-SNAPSHOT</version>
     <packaging>hpi</packaging>
 
