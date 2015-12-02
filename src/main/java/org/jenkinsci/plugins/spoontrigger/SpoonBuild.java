@@ -30,7 +30,7 @@ public class SpoonBuild extends Build<SpoonProject, SpoonBuild> {
         super(project, buildDir);
     }
 
-    Date getStartDate() {
+    public Date getStartDate() {
         long startTime = this.getStartTimeInMillis();
         return new Date(startTime);
     }

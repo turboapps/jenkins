@@ -1,6 +1,5 @@
 package org.jenkinsci.plugins.spoontrigger;
 
-import com.google.common.base.Optional;
 import com.google.common.reflect.TypeToken;
 import hudson.Extension;
 import hudson.Launcher;
@@ -9,15 +8,16 @@ import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
 import hudson.tasks.BuildStepDescriptor;
-import hudson.tasks.Publisher;
+import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 import lombok.Getter;
 import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
-import org.jenkinsci.plugins.spoontrigger.client.PushCommand;
 import org.jenkinsci.plugins.spoontrigger.client.SpoonClient;
 import org.jenkinsci.plugins.spoontrigger.push.PushConfig;
+import org.jenkinsci.plugins.spoontrigger.push.Pusher;
 import org.jenkinsci.plugins.spoontrigger.push.RemoteImageNameStrategy;
+import org.jenkinsci.plugins.spoontrigger.utils.TaskListeners;
 import org.jenkinsci.plugins.spoontrigger.validation.Level;
 import org.jenkinsci.plugins.spoontrigger.validation.StringValidators;
 import org.jenkinsci.plugins.spoontrigger.validation.Validator;
@@ -27,14 +27,12 @@ import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
 import javax.annotation.Nullable;
+import java.io.IOException;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
 
-/**
- * @deprecated use {@link PushBuilder} instead.
- */
-@Deprecated
-public class PushPublisher extends SpoonBasePublisher {
+public class PushBuilder extends Builder {
     @Nullable
     @Getter
     private final String remoteImageName;
@@ -55,7 +53,7 @@ public class PushPublisher extends SpoonBasePublisher {
     private transient PushConfig pushConfig;
 
     @DataBoundConstructor
-    public PushPublisher(@Nullable RemoteImageNameStrategy remoteImageStrategy,
+    public PushBuilder(@Nullable RemoteImageNameStrategy remoteImageStrategy,
                          @Nullable String organization, boolean overwriteOrganization,
                          @Nullable String remoteImageName, @Nullable String dateFormat, boolean appendDate) {
         this.remoteImageStrategy = (remoteImageStrategy == null) ? RemoteImageNameStrategy.DO_NOT_USE : remoteImageStrategy;
@@ -67,29 +65,26 @@ public class PushPublisher extends SpoonBasePublisher {
     }
 
     @Override
-    public void beforePublish(SpoonBuild build, BuildListener listener) {
-        super.beforePublish(build, listener);
+    public boolean prebuild(AbstractBuild<?, ?> abstractBuild, BuildListener listener) {
+        checkArgument(abstractBuild instanceof SpoonBuild, requireInstanceOf("build", SpoonBuild.class));
 
-        this.remoteImageStrategy.validate(getPushConfig(), build);
+        this.remoteImageStrategy.validate(getPushConfig(), (SpoonBuild) abstractBuild);
+
+        return true;
     }
 
     @Override
-    public void publish(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) throws IllegalStateException {
-        SpoonBuild build = (SpoonBuild) abstractBuild;
-        SpoonClient client = super.createClient(build, launcher, listener);
-        PushCommand pushCmd = this.createPushCommand(build);
-        pushCmd.run(client);
-    }
-
-    private PushCommand createPushCommand(SpoonBuild spoonBuild) {
-        PushCommand.CommandBuilder cmdBuilder = PushCommand.builder().image(super.getImageName().get());
-
-        Optional<String> remoteImage = this.remoteImageStrategy.tryGetRemoteImage(getPushConfig(), spoonBuild);
-        if (remoteImage.isPresent()) {
-            cmdBuilder.remoteImage(remoteImage.get());
+    public boolean perform(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
+        try {
+            SpoonBuild build = (SpoonBuild) abstractBuild;
+            SpoonClient client = SpoonClient.builder(build).launcher(launcher).listener(listener).build();
+            Pusher pusher = new Pusher(remoteImageStrategy, client);
+            pusher.push(getPushConfig(), build);
+            return true;
+        } catch (IllegalStateException ex) {
+            TaskListeners.logFatalError(listener, ex);
+            return false;
         }
-
-        return cmdBuilder.build();
     }
 
     private PushConfig getPushConfig() {
@@ -100,7 +95,7 @@ public class PushPublisher extends SpoonBasePublisher {
     }
 
     @Extension
-    public static final class DescriptorImpl extends BuildStepDescriptor<Publisher> {
+    public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
 
         private static final Validator<String> REMOTE_IMAGE_NAME_VALIDATOR;
         private static final Validator<String> ORGANIZATION_VALIDATOR;
@@ -130,7 +125,7 @@ public class PushPublisher extends SpoonBasePublisher {
         }
 
         @Override
-        public Publisher newInstance(StaplerRequest req, JSONObject formData) throws FormException {
+        public Builder newInstance(StaplerRequest req, JSONObject formData) throws FormException {
             try {
                 JSONObject pushJSON = formData.getJSONObject("remoteImageStrategy");
 
@@ -151,7 +146,7 @@ public class PushPublisher extends SpoonBasePublisher {
                     appendDate = getBoolOrDefault(pushJSON, "appendDate");
                 }
 
-                return new PushPublisher(remoteImageStrategy, organization, overwriteOrganization, remoteImageName, dateFormat, appendDate);
+                return new PushBuilder(remoteImageStrategy, organization, overwriteOrganization, remoteImageName, dateFormat, appendDate);
             } catch (JSONException ex) {
                 throw new IllegalStateException("Error while parsing data form", ex);
             }
