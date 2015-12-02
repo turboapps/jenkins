@@ -31,7 +31,7 @@
             <f:checkbox/>
         </f:entry>
         <f:entry title="No-Base" field="noBase">
-            <f:checkbox/>
+            <f:checkbox default="true"/>
         </f:entry>
         <f:entry title="Diagnostic" field="diagnostic">
             <f:checkbox/>
