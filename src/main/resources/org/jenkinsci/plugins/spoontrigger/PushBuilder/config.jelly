@@ -12,7 +12,7 @@
                                  checked="${instance.overwriteOrganization}">
                     <f:entry title="Organization" field="organization">
                         <f:textbox
-                                checkUrl="'descriptorByName/PushPublisher/checkOrganization?value='+escape(this.value)"/>
+                                checkUrl="'descriptorByName/PushBuilder/checkOrganization?value='+escape(this.value)"/>
                     </f:entry>
                 </f:optionalBlock>
             </f:advanced>
@@ -22,14 +22,14 @@
                       help="/plugin/spoonscript/help-remoteImageNameStrategyFixed.html">
             <f:entry field="remoteImageName" title="Name">
                 <f:textbox
-                        checkUrl="'descriptorByName/PushPublisher/checkRemoteImageName?value='+escape(this.value)"/>
+                        checkUrl="'descriptorByName/PushBuilder/checkRemoteImageName?value='+escape(this.value)"/>
             </f:entry>
             <f:advanced>
                 <f:optionalBlock title="Append date" field="appendDate" inline="true"
                                  checked="${instance.appendDate}">
                     <f:entry title="Date format" field="dateFormat">
                         <f:textbox
-                                checkUrl="'descriptorByName/PushPublisher/checkDateFormat?value='+escape(this.value)"/>
+                                checkUrl="'descriptorByName/PushBuilder/checkDateFormat?value='+escape(this.value)"/>
                     </f:entry>
                 </f:optionalBlock>
             </f:advanced>
