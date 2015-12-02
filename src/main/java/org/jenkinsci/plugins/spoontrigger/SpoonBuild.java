@@ -6,12 +6,17 @@ import hudson.EnvVars;
 import hudson.FilePath;
 import hudson.model.Build;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Date;
 
 public class SpoonBuild extends Build<SpoonProject, SpoonBuild> {
+
+    @Getter
+    @Setter
+    private boolean allowOverwrite = false;
 
     @Getter
     private Optional<StandardUsernamePasswordCredentials> credentials = Optional.absent();

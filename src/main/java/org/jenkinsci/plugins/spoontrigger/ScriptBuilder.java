@@ -115,6 +115,7 @@ public class ScriptBuilder extends Builder {
             if (credentials.isPresent()) {
                 spoonBuild.setCredentials(credentials.get());
             }
+            spoonBuild.setAllowOverwrite(this.overwrite);
 
             EnvVars env = this.getEnvironment(build, listener);
             spoonBuild.setEnv(env);
@@ -124,7 +125,7 @@ public class ScriptBuilder extends Builder {
 
             this.checkMountSettings();
 
-            return super.prebuild(build, listener);
+            return true;
         } catch (IllegalStateException ex) {
             TaskListeners.logFatalError(listener, ex);
             return false;
@@ -146,6 +147,7 @@ public class ScriptBuilder extends Builder {
 
             String outputImage = build(client, build.getScript().get());
             build.setBuiltImage(outputImage);
+
             return true;
         } catch (IllegalStateException ex) {
             TaskListeners.logFatalError(listener, ex);
