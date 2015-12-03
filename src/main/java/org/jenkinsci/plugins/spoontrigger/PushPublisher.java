@@ -16,6 +16,7 @@ import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.spoontrigger.client.PushCommand;
 import org.jenkinsci.plugins.spoontrigger.client.SpoonClient;
+import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.push.PushConfig;
 import org.jenkinsci.plugins.spoontrigger.push.RemoteImageNameStrategy;
 import org.jenkinsci.plugins.spoontrigger.validation.Level;
@@ -31,6 +32,8 @@ import javax.annotation.Nullable;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
 
 /**
+ * Class is kept for backwards compatibility with existing Jenkins build projects.
+ *
  * @deprecated use {@link PushBuilder} instead.
  */
 @Deprecated
@@ -82,11 +85,11 @@ public class PushPublisher extends SpoonBasePublisher {
     }
 
     private PushCommand createPushCommand(SpoonBuild spoonBuild) {
-        PushCommand.CommandBuilder cmdBuilder = PushCommand.builder().image(super.getImageName().get());
+        PushCommand.CommandBuilder cmdBuilder = PushCommand.builder().image(super.getImage().get().printIdentifier());
 
-        Optional<String> remoteImage = this.remoteImageStrategy.tryGetRemoteImage(getPushConfig(), spoonBuild);
+        Optional<Image> remoteImage = this.remoteImageStrategy.tryGetRemoteImage(getPushConfig(), spoonBuild);
         if (remoteImage.isPresent()) {
-            cmdBuilder.remoteImage(remoteImage.get());
+            cmdBuilder.remoteImage(remoteImage.get().printIdentifier());
         }
 
         return cmdBuilder.build();
@@ -126,7 +129,7 @@ public class PushPublisher extends SpoonBasePublisher {
         }
 
         private static boolean getBoolOrDefault(JSONObject json, String key) {
-            return json.containsKey(key) ? json.getBoolean(key) : false;
+            return json.containsKey(key) && json.getBoolean(key);
         }
 
         @Override

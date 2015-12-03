@@ -25,6 +25,7 @@ public final class SpoonClient {
     private FilePath pwd;
     private TaskListener listener;
     private Launcher launcher;
+    private boolean ignoreErrorCode = false;
 
     @Getter(AccessLevel.PACKAGE)
     private Charset charset;
@@ -40,11 +41,11 @@ public final class SpoonClient {
                 .pwd(build.getScript().get().getParent());
     }
 
-    void launch(ArgumentListBuilder argumentList) throws IllegalStateException {
-        this.launch(argumentList, this.getLogger());
+    int launch(ArgumentListBuilder argumentList) throws IllegalStateException {
+        return this.launch(argumentList, this.getLogger());
     }
 
-    void launch(ArgumentListBuilder argumentList, OutputStream out) throws IllegalStateException {
+    int launch(ArgumentListBuilder argumentList, OutputStream out) throws IllegalStateException {
         int errorCode;
         try {
             errorCode = this.createLauncher().cmds(argumentList).stdout(out).join();
@@ -54,10 +55,12 @@ public final class SpoonClient {
             throw onLaunchFailure(argumentList, ex);
         }
 
-        if (errorCode != NO_ERROR) {
+        if (!ignoreErrorCode && errorCode != NO_ERROR) {
             String errMsg = String.format("Process returned error code %d", errorCode);
             throw new IllegalStateException(errMsg);
         }
+
+        return errorCode;
     }
 
     PrintStream getLogger() {
@@ -103,6 +106,11 @@ public final class SpoonClient {
 
         public ClientBuilder charset(Charset charset) {
             this.client.charset = charset;
+            return this;
+        }
+
+        public ClientBuilder ignoreErrorCode(boolean ignoreErrorCode) {
+            this.client.ignoreErrorCode = ignoreErrorCode;
             return this;
         }
 

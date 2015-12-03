@@ -6,6 +6,7 @@ import hudson.plugins.git.util.BuildData;
 import org.jenkinsci.plugins.spoontrigger.SpoonBuild;
 import org.jenkinsci.plugins.spoontrigger.git.PushCause;
 import org.jenkinsci.plugins.spoontrigger.git.RemoteImageGenerator;
+import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.utils.Patterns;
 import org.jenkinsci.plugins.spoontrigger.validation.StringValidators;
 
@@ -19,13 +20,13 @@ import static org.jenkinsci.plugins.spoontrigger.Messages.REQUIRE_VALID_FORMAT_S
 public enum RemoteImageNameStrategy {
     DO_NOT_USE {
         @Override
-        public Optional<String> tryGetRemoteImage(PushConfig pushConfig, SpoonBuild build) {
+        public Optional<Image> tryGetRemoteImage(PushConfig pushConfig, SpoonBuild build) {
             return Optional.absent();
         }
     },
     GENERATE_GIT {
         @Override
-        public Optional<String> tryGetRemoteImage(PushConfig pushConfig, SpoonBuild build) {
+        public Optional<Image> tryGetRemoteImage(PushConfig pushConfig, SpoonBuild build) {
             Optional<String> organization = Optional.absent();
             if (pushConfig.isOverwriteOrganization()) {
                 organization = Optional.fromNullable(pushConfig.getOrganization());
@@ -33,12 +34,12 @@ public enum RemoteImageNameStrategy {
 
             PushCause cause = build.getCause(PushCause.class);
             if (cause != null) {
-                return Optional.of(RemoteImageGenerator.fromPush(cause, organization));
+                return Optional.of(Image.parse(RemoteImageGenerator.fromPush(cause, organization)));
             }
 
             BuildData buildData = build.getAction(BuildData.class);
             if (buildData != null) {
-                return Optional.of(RemoteImageGenerator.fromPull(buildData, organization));
+                return Optional.of(Image.parse(RemoteImageGenerator.fromPull(buildData, organization)));
             }
 
             return Optional.absent();
@@ -68,7 +69,7 @@ public enum RemoteImageNameStrategy {
     },
     FIXED {
         @Override
-        public Optional<String> tryGetRemoteImage(PushConfig pushConfig, SpoonBuild build) {
+        public Optional<Image> tryGetRemoteImage(PushConfig pushConfig, SpoonBuild build) {
             String remoteImageName = pushConfig.getRemoteImageName();
 
             String rawDateFormat = pushConfig.getDateFormat();
@@ -78,7 +79,7 @@ public enum RemoteImageNameStrategy {
                 remoteImageName += dateFormat.format(startDate);
             }
 
-            return Optional.of(remoteImageName);
+            return Optional.of(Image.parse(remoteImageName));
         }
 
         @Override
@@ -96,7 +97,7 @@ public enum RemoteImageNameStrategy {
         }
     };
 
-    public abstract Optional<String> tryGetRemoteImage(PushConfig pushConfig, SpoonBuild build);
+    public abstract Optional<Image> tryGetRemoteImage(PushConfig pushConfig, SpoonBuild build);
 
     public void validate(PushConfig pushConfig, SpoonBuild build) {
     }

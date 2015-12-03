@@ -6,6 +6,7 @@ import org.jenkinsci.plugins.spoontrigger.Messages;
 import org.jenkinsci.plugins.spoontrigger.SpoonBuild;
 import org.jenkinsci.plugins.spoontrigger.client.PushCommand;
 import org.jenkinsci.plugins.spoontrigger.client.SpoonClient;
+import org.jenkinsci.plugins.spoontrigger.hub.Image;
 
 import java.io.IOException;
 
@@ -28,7 +29,7 @@ public class Pusher {
         checkState(buildResult.get().isBetterThan(Result.FAILURE), "%s requires a healthy build to continue. Result of the current build is %s.",
                 Messages.toString(this.getClass()), buildResult.get());
 
-        Optional<String> builtImage = build.getBuiltImage();
+        Optional<Image> builtImage = build.getBuiltImage();
         checkState(builtImage.isPresent(), REQUIRE_PRESENT_S, "built image");
     }
 
@@ -38,12 +39,12 @@ public class Pusher {
     }
 
     private PushCommand createPushCommand(PushConfig pushConfig, SpoonBuild build) {
-        Optional<String> builtImage = build.getBuiltImage();
-        PushCommand.CommandBuilder cmdBuilder = PushCommand.builder().image(builtImage.get());
+        Optional<Image> builtImage = build.getBuiltImage();
+        PushCommand.CommandBuilder cmdBuilder = PushCommand.builder().image(builtImage.get().printIdentifier());
 
-        Optional<String> remoteImage = this.remoteImageNameStrategy.tryGetRemoteImage(pushConfig, build);
+        Optional<Image> remoteImage = this.remoteImageNameStrategy.tryGetRemoteImage(pushConfig, build);
         if (remoteImage.isPresent()) {
-            cmdBuilder.remoteImage(remoteImage.get());
+            cmdBuilder.remoteImage(remoteImage.get().printIdentifier());
         }
 
         return cmdBuilder.build();

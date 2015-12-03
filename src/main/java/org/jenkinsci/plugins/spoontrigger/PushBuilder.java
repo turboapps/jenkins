@@ -1,5 +1,7 @@
 package org.jenkinsci.plugins.spoontrigger;
 
+import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
+import com.google.common.base.Optional;
 import com.google.common.reflect.TypeToken;
 import hudson.Extension;
 import hudson.Launcher;
@@ -7,6 +9,7 @@ import hudson.Util;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
+import hudson.model.Result;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
@@ -14,6 +17,8 @@ import lombok.Getter;
 import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.spoontrigger.client.SpoonClient;
+import org.jenkinsci.plugins.spoontrigger.hub.HubApi;
+import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.push.PushConfig;
 import org.jenkinsci.plugins.spoontrigger.push.Pusher;
 import org.jenkinsci.plugins.spoontrigger.push.RemoteImageNameStrategy;
@@ -30,7 +35,9 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
+import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
 
 public class PushBuilder extends Builder {
     @Nullable
@@ -54,8 +61,8 @@ public class PushBuilder extends Builder {
 
     @DataBoundConstructor
     public PushBuilder(@Nullable RemoteImageNameStrategy remoteImageStrategy,
-                         @Nullable String organization, boolean overwriteOrganization,
-                         @Nullable String remoteImageName, @Nullable String dateFormat, boolean appendDate) {
+                       @Nullable String organization, boolean overwriteOrganization,
+                       @Nullable String remoteImageName, @Nullable String dateFormat, boolean appendDate) {
         this.remoteImageStrategy = (remoteImageStrategy == null) ? RemoteImageNameStrategy.DO_NOT_USE : remoteImageStrategy;
         this.organization = Util.fixEmptyAndTrim(organization);
         this.overwriteOrganization = overwriteOrganization;
@@ -77,6 +84,12 @@ public class PushBuilder extends Builder {
     public boolean perform(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
         try {
             SpoonBuild build = (SpoonBuild) abstractBuild;
+
+            if (shouldAbort(build, listener)) {
+                build.setResult(Result.ABORTED);
+                return false;
+            }
+
             SpoonClient client = SpoonClient.builder(build).launcher(launcher).listener(listener).build();
             Pusher pusher = new Pusher(remoteImageStrategy, client);
             pusher.push(getPushConfig(), build);
@@ -85,6 +98,63 @@ public class PushBuilder extends Builder {
             TaskListeners.logFatalError(listener, ex);
             return false;
         }
+    }
+
+    private boolean shouldAbort(SpoonBuild build, BuildListener listener) {
+        if (build.isAllowOverwrite()) {
+            return false;
+        }
+
+        Result currentResult = build.getResult();
+        if (currentResult != null && currentResult.isWorseThan(Result.ABORTED)) {
+            return false;
+        }
+
+        Image remoteImage = getRemoteImage(build);
+        if (remoteImage.getNamespace() == null) {
+            String msg = "Check if image " + remoteImage.printIdentifier() + " is available remotely is skipped," +
+                    " because the image name does not specify namespace and it can't be extracted" +
+                    " from Jenkins credentials";
+            log(listener, msg);
+
+            return false;
+        }
+
+        HubApi hubApi = new HubApi(listener);
+        try {
+            boolean result = hubApi.isAvailableRemotely(remoteImage);
+
+            if (result) {
+                String msg = String.format("Image %s is available remotely", remoteImage.printIdentifier());
+                log(listener, msg);
+            }
+
+            return result;
+        } catch (Exception ex) {
+            String msg = String.format("Failed to check if image %s is available remotely: %s",
+                    remoteImage.printIdentifier(),
+                    ex.getMessage());
+            log(listener, msg, ex);
+            return false;
+        }
+    }
+
+    private Image getRemoteImage(SpoonBuild build) {
+        Optional<Image> outputImage = build.getBuiltImage();
+
+        checkState(outputImage.isPresent());
+
+        Image image = outputImage.get();
+        Optional<Image> remoteImageName = this.remoteImageStrategy.tryGetRemoteImage(getPushConfig(), build);
+        final Image imageToUse = remoteImageName.or(image);
+        if (imageToUse.getNamespace() == null) {
+            Optional<StandardUsernamePasswordCredentials> credentials = build.getCredentials();
+            if (credentials.isPresent()) {
+                return new Image(credentials.get().getUsername(), imageToUse.getRepo(), imageToUse.getTag());
+            }
+        }
+
+        return imageToUse;
     }
 
     private PushConfig getPushConfig() {
@@ -121,7 +191,7 @@ public class PushBuilder extends Builder {
         }
 
         private static boolean getBoolOrDefault(JSONObject json, String key) {
-            return json.containsKey(key) ? json.getBoolean(key) : false;
+            return json.containsKey(key) && json.getBoolean(key);
         }
 
         @Override

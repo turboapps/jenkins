@@ -9,7 +9,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.REQUIRE_PRESENT_S;
 import static org.jenkinsci.plugins.spoontrigger.Messages.REQUIRE_SINGLE_WORD_SP;
 
-public final class RemoveImageCommand extends VoidCommand {
+public final class RemoveImageCommand extends FilterOutputCommand {
 
     private RemoveImageCommand(ArgumentListBuilder argumentList) {
         super(argumentList);

@@ -17,6 +17,7 @@ import org.jenkinsci.plugins.spoontrigger.client.BuildCommand;
 import org.jenkinsci.plugins.spoontrigger.client.LoginCommand;
 import org.jenkinsci.plugins.spoontrigger.client.SpoonClient;
 import org.jenkinsci.plugins.spoontrigger.client.VersionCommand;
+import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.utils.AutoCompletion;
 import org.jenkinsci.plugins.spoontrigger.utils.Credentials;
 import org.jenkinsci.plugins.spoontrigger.utils.FileResolver;
@@ -35,6 +36,7 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
+import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
 
 public class ScriptBuilder extends Builder {
 
@@ -115,6 +117,7 @@ public class ScriptBuilder extends Builder {
             if (credentials.isPresent()) {
                 spoonBuild.setCredentials(credentials.get());
             }
+            spoonBuild.setAllowOverwrite(this.overwrite);
 
             EnvVars env = this.getEnvironment(build, listener);
             spoonBuild.setEnv(env);
@@ -124,7 +127,7 @@ public class ScriptBuilder extends Builder {
 
             this.checkMountSettings();
 
-            return super.prebuild(build, listener);
+            return true;
         } catch (IllegalStateException ex) {
             TaskListeners.logFatalError(listener, ex);
             return false;
@@ -135,7 +138,7 @@ public class ScriptBuilder extends Builder {
     public boolean perform(AbstractBuild abstractBuild, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
         try {
             SpoonBuild build = (SpoonBuild) abstractBuild;
-            SpoonClient client = SpoonClient.builder(build).launcher(launcher).listener(listener).build();
+            SpoonClient client = SpoonClient.builder(build).launcher(launcher).listener(listener).ignoreErrorCode(true).build();
 
             checkSpoonPluginIsRunning(client);
 
@@ -144,13 +147,32 @@ public class ScriptBuilder extends Builder {
                 login(client, credentials.get());
             }
 
-            String outputImage = build(client, build.getScript().get());
-            build.setBuiltImage(outputImage);
-            return true;
+            BuildCommand command = createBuildCommand(build.getScript().get());
+            command.run(client);
+
+            Optional<Image> outputImage = command.getOutputImage();
+            if (outputImage.isPresent()) {
+                build.setBuiltImage(outputImage.get());
+                return true;
+            }
+
+            log(listener, "Failed to find the output image in the build process output");
+            if (shouldAbort(build, command)) {
+                build.setResult(Result.ABORTED);
+            }
+            return false;
         } catch (IllegalStateException ex) {
             TaskListeners.logFatalError(listener, ex);
             return false;
         }
+    }
+
+    private boolean shouldAbort(SpoonBuild build, BuildCommand command) {
+        Result currentResult = build.getResult();
+        BuildCommand.BuildFailure buildFailure = command.getError();
+        return (currentResult == null || currentResult.isBetterThan(Result.ABORTED))
+                && BuildCommand.BuildFailure.ImageAlreadyExists.equals(buildFailure);
+
     }
 
     private void checkMountSettings() {
@@ -171,7 +193,7 @@ public class ScriptBuilder extends Builder {
         loginCmd.run(client);
     }
 
-    private String build(SpoonClient client, FilePath scriptPath) {
+    private BuildCommand createBuildCommand(FilePath scriptPath) {
         BuildCommand.CommandBuilder cmdBuilder = BuildCommand.builder().script(scriptPath);
         if (this.imageName != null) {
             cmdBuilder.image(this.imageName);
@@ -193,8 +215,7 @@ public class ScriptBuilder extends Builder {
         cmdBuilder.overwrite(this.overwrite);
         cmdBuilder.noBase(this.noBase);
 
-        BuildCommand buildCmd = cmdBuilder.build();
-        return buildCmd.run(client);
+        return cmdBuilder.build();
     }
 
     private Optional<StandardUsernamePasswordCredentials> getCredentials() throws IllegalStateException {

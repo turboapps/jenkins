@@ -6,6 +6,8 @@ import hudson.EnvVars;
 import hudson.FilePath;
 import hudson.model.Build;
 import lombok.Getter;
+import lombok.Setter;
+import org.jenkinsci.plugins.spoontrigger.hub.Image;
 
 import java.io.File;
 import java.io.IOException;
@@ -14,9 +16,13 @@ import java.util.Date;
 public class SpoonBuild extends Build<SpoonProject, SpoonBuild> {
 
     @Getter
+    @Setter
+    private boolean allowOverwrite = false;
+
+    @Getter
     private Optional<StandardUsernamePasswordCredentials> credentials = Optional.absent();
     @Getter
-    private Optional<String> builtImage = Optional.absent();
+    private Optional<Image> builtImage = Optional.absent();
     @Getter
     private Optional<FilePath> script = Optional.absent();
     @Getter
@@ -39,7 +45,7 @@ public class SpoonBuild extends Build<SpoonProject, SpoonBuild> {
         this.credentials = Optional.of(credentials);
     }
 
-    void setBuiltImage(String builtImage) {
+    void setBuiltImage(Image builtImage) {
         this.builtImage = Optional.of(builtImage);
     }
 
