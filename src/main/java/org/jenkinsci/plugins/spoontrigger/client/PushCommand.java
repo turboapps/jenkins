@@ -9,7 +9,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.REQUIRE_PRESENT_S;
 import static org.jenkinsci.plugins.spoontrigger.Messages.REQUIRE_SINGLE_WORD_SP;
 
-public final class PushCommand extends VoidCommand {
+public final class PushCommand extends FilterOutputCommand {
 
     private PushCommand(ArgumentListBuilder argumentList) {
         super(argumentList);

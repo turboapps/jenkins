@@ -140,15 +140,13 @@ public class PushBuilder extends Builder {
     }
 
     private Image getRemoteImage(SpoonBuild build) {
-        Optional<String> outputImage = build.getBuiltImage();
+        Optional<Image> outputImage = build.getBuiltImage();
 
         checkState(outputImage.isPresent());
 
-        String imageName = outputImage.get();
-        Optional<String> remoteImageName = this.remoteImageStrategy.tryGetRemoteImage(getPushConfig(), build);
-        final String imageNameToUse = remoteImageName.or(imageName);
-
-        Image imageToUse = Image.parse(imageNameToUse);
+        Image image = outputImage.get();
+        Optional<Image> remoteImageName = this.remoteImageStrategy.tryGetRemoteImage(getPushConfig(), build);
+        final Image imageToUse = remoteImageName.or(image);
         if (imageToUse.getNamespace() == null) {
             Optional<StandardUsernamePasswordCredentials> credentials = build.getCredentials();
             if (credentials.isPresent()) {

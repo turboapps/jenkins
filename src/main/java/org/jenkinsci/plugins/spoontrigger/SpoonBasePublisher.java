@@ -10,6 +10,7 @@ import hudson.tasks.Publisher;
 import lombok.AccessLevel;
 import lombok.Getter;
 import org.jenkinsci.plugins.spoontrigger.client.SpoonClient;
+import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.utils.TaskListeners;
 
 import java.io.IOException;
@@ -21,7 +22,7 @@ import static org.jenkinsci.plugins.spoontrigger.Messages.requireInstanceOf;
 abstract class SpoonBasePublisher extends Publisher {
 
     @Getter(AccessLevel.MODULE)
-    private transient Optional<String> imageName = Optional.absent();
+    private transient Optional<Image> image = Optional.absent();
 
     @Override
     public BuildStepMonitor getRequiredMonitorService() {
@@ -44,11 +45,11 @@ abstract class SpoonBasePublisher extends Publisher {
         checkState(buildResult.get().isBetterThan(Result.FAILURE), "%s requires a healthy build to continue. Result of the current build is %s.",
                 Messages.toString(this.getClass()), buildResult.get());
 
-        Optional<String> builtImage = build.getBuiltImage();
+        Optional<Image> builtImage = build.getBuiltImage();
 
         checkState(builtImage.isPresent(), REQUIRE_PRESENT_S, "built image");
 
-        this.imageName = builtImage;
+        this.image = builtImage;
     }
 
     protected abstract void publish(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws IllegalStateException;

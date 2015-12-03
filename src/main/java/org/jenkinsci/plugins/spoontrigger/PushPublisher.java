@@ -16,6 +16,7 @@ import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.spoontrigger.client.PushCommand;
 import org.jenkinsci.plugins.spoontrigger.client.SpoonClient;
+import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.push.PushConfig;
 import org.jenkinsci.plugins.spoontrigger.push.RemoteImageNameStrategy;
 import org.jenkinsci.plugins.spoontrigger.validation.Level;
@@ -82,11 +83,11 @@ public class PushPublisher extends SpoonBasePublisher {
     }
 
     private PushCommand createPushCommand(SpoonBuild spoonBuild) {
-        PushCommand.CommandBuilder cmdBuilder = PushCommand.builder().image(super.getImageName().get());
+        PushCommand.CommandBuilder cmdBuilder = PushCommand.builder().image(super.getImage().get().printIdentifier());
 
-        Optional<String> remoteImage = this.remoteImageStrategy.tryGetRemoteImage(getPushConfig(), spoonBuild);
+        Optional<Image> remoteImage = this.remoteImageStrategy.tryGetRemoteImage(getPushConfig(), spoonBuild);
         if (remoteImage.isPresent()) {
-            cmdBuilder.remoteImage(remoteImage.get());
+            cmdBuilder.remoteImage(remoteImage.get().printIdentifier());
         }
 
         return cmdBuilder.build();

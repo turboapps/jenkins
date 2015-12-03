@@ -81,7 +81,7 @@ public class ExportPublisher extends SpoonBasePublisher {
     }
 
     private ExportCommand createExportCommand() {
-        return ExportCommand.builder().outputFile(this.runtimeOutputFile).image(this.getImageName().get()).build();
+        return ExportCommand.builder().outputFile(this.runtimeOutputFile).image(this.getImage().get().printIdentifier()).build();
     }
 
     @Extension

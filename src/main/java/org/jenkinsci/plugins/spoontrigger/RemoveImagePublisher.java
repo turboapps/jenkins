@@ -25,7 +25,7 @@ public class RemoveImagePublisher extends SpoonBasePublisher {
     }
 
     private RemoveImageCommand createRemoveImageCommand() {
-        return RemoveImageCommand.builder().image(super.getImageName().get()).build();
+        return RemoveImageCommand.builder().image(super.getImage().get().printIdentifier()).build();
     }
 
     @Extension

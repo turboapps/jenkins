@@ -45,6 +45,5 @@ public class HubApiTests {
         boolean isAvailableRemotely = hubApi.isAvailableRemotely(image);
 
         Assert.assertEquals(shouldExist, isAvailableRemotely);
-
     }
 }

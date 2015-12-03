@@ -17,6 +17,7 @@ import org.jenkinsci.plugins.spoontrigger.client.BuildCommand;
 import org.jenkinsci.plugins.spoontrigger.client.LoginCommand;
 import org.jenkinsci.plugins.spoontrigger.client.SpoonClient;
 import org.jenkinsci.plugins.spoontrigger.client.VersionCommand;
+import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.utils.AutoCompletion;
 import org.jenkinsci.plugins.spoontrigger.utils.Credentials;
 import org.jenkinsci.plugins.spoontrigger.utils.FileResolver;
@@ -145,8 +146,14 @@ public class ScriptBuilder extends Builder {
                 login(client, credentials.get());
             }
 
-            String outputImage = build(client, build.getScript().get());
-            build.setBuiltImage(outputImage);
+            BuildCommand command = createBuildCommand(build.getScript().get());
+            command.run(client);
+
+            Optional<Image> outputImage = command.getOutputImage();
+
+            checkState(outputImage.isPresent(), "Failed to find the output image in the build process output");
+
+            build.setBuiltImage(outputImage.get());
 
             return true;
         } catch (IllegalStateException ex) {
@@ -173,7 +180,7 @@ public class ScriptBuilder extends Builder {
         loginCmd.run(client);
     }
 
-    private String build(SpoonClient client, FilePath scriptPath) {
+    private BuildCommand createBuildCommand(FilePath scriptPath) {
         BuildCommand.CommandBuilder cmdBuilder = BuildCommand.builder().script(scriptPath);
         if (this.imageName != null) {
             cmdBuilder.image(this.imageName);
@@ -195,8 +202,7 @@ public class ScriptBuilder extends Builder {
         cmdBuilder.overwrite(this.overwrite);
         cmdBuilder.noBase(this.noBase);
 
-        BuildCommand buildCmd = cmdBuilder.build();
-        return buildCmd.run(client);
+        return cmdBuilder.build();
     }
 
     private Optional<StandardUsernamePasswordCredentials> getCredentials() throws IllegalStateException {
