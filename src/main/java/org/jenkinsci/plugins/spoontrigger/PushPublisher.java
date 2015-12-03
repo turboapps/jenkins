@@ -32,6 +32,8 @@ import javax.annotation.Nullable;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
 
 /**
+ * Class is kept for backwards compatibility with existing Jenkins build projects.
+ *
  * @deprecated use {@link PushBuilder} instead.
  */
 @Deprecated
@@ -127,7 +129,7 @@ public class PushPublisher extends SpoonBasePublisher {
         }
 
         private static boolean getBoolOrDefault(JSONObject json, String key) {
-            return json.containsKey(key) ? json.getBoolean(key) : false;
+            return json.containsKey(key) && json.getBoolean(key);
         }
 
         @Override

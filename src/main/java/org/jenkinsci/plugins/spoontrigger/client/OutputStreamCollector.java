@@ -53,7 +53,7 @@ public class OutputStreamCollector extends LineTransformationOutputStream {
             return;
         }
 
-        if (totalBytes + length <= MAX_LENGTH) {
+        if (lineToUse.length() > 0 && totalBytes + length <= MAX_LENGTH) {
             lines.add(lineToUse);
             totalBytes += length;
         }

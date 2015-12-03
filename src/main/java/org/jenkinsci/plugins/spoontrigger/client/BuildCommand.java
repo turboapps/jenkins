@@ -19,6 +19,11 @@ import static org.jenkinsci.plugins.spoontrigger.Messages.*;
 public final class BuildCommand extends FilterOutputCommand {
 
     private static final Pattern OUTPUT_IMAGE_PATTERN = Pattern.compile("Output\\s+image:\\s+(\\S+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern OUTPUT_ERROR_PATTERN = Pattern.compile("^Error:\\s+(.*)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern ERROR_IMAGE_EXISTS_PATTERN = Pattern.compile("image already exists", Pattern.CASE_INSENSITIVE);
+
+    @Getter
+    private BuildFailure error;
 
     @Getter
     private Optional<Image> outputImage = Optional.absent();
@@ -35,7 +40,24 @@ public final class BuildCommand extends FilterOutputCommand {
         if (patterns.size() > 0) {
             String outputImageName = Iterables.getLast(patterns);
             outputImage = Optional.of(Image.parse(outputImageName));
+            error = BuildFailure.None;
+        } else {
+            error = getBuildFailure().or(BuildFailure.None);
         }
+    }
+
+    private Optional<BuildFailure> getBuildFailure() {
+        Collection<String> errors = findInOutput(OUTPUT_ERROR_PATTERN);
+        for (String errorMsg : errors) {
+            if (Patterns.matches(errorMsg, ERROR_IMAGE_EXISTS_PATTERN)) {
+                return Optional.of(BuildFailure.ImageAlreadyExists);
+            }
+        }
+
+        if (errors.isEmpty()) {
+            return Optional.absent();
+        }
+        return Optional.of(BuildFailure.Unknown);
     }
 
     public static CommandBuilder builder() {
@@ -159,5 +181,11 @@ public final class BuildCommand extends FilterOutputCommand {
             buildArgs.addQuoted(this.script.get().getRemote());
             return new BuildCommand(buildArgs);
         }
+    }
+
+    public enum BuildFailure {
+        None,
+        Unknown,
+        ImageAlreadyExists
     }
 }

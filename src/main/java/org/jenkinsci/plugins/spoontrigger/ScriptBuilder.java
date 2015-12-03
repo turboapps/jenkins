@@ -36,6 +36,7 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
+import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
 
 public class ScriptBuilder extends Builder {
 
@@ -137,7 +138,7 @@ public class ScriptBuilder extends Builder {
     public boolean perform(AbstractBuild abstractBuild, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
         try {
             SpoonBuild build = (SpoonBuild) abstractBuild;
-            SpoonClient client = SpoonClient.builder(build).launcher(launcher).listener(listener).build();
+            SpoonClient client = SpoonClient.builder(build).launcher(launcher).listener(listener).ignoreErrorCode(true).build();
 
             checkSpoonPluginIsRunning(client);
 
@@ -150,16 +151,28 @@ public class ScriptBuilder extends Builder {
             command.run(client);
 
             Optional<Image> outputImage = command.getOutputImage();
+            if (outputImage.isPresent()) {
+                build.setBuiltImage(outputImage.get());
+                return true;
+            }
 
-            checkState(outputImage.isPresent(), "Failed to find the output image in the build process output");
-
-            build.setBuiltImage(outputImage.get());
-
-            return true;
+            log(listener, "Failed to find the output image in the build process output");
+            if (shouldAbort(build, command)) {
+                build.setResult(Result.ABORTED);
+            }
+            return false;
         } catch (IllegalStateException ex) {
             TaskListeners.logFatalError(listener, ex);
             return false;
         }
+    }
+
+    private boolean shouldAbort(SpoonBuild build, BuildCommand command) {
+        Result currentResult = build.getResult();
+        BuildCommand.BuildFailure buildFailure = command.getError();
+        return (currentResult == null || currentResult.isBetterThan(Result.ABORTED))
+                && BuildCommand.BuildFailure.ImageAlreadyExists.equals(buildFailure);
+
     }
 
     private void checkMountSettings() {
