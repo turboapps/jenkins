@@ -172,7 +172,6 @@ public class ScriptBuilder extends Builder {
         BuildCommand.BuildFailure buildFailure = command.getError();
         return (currentResult == null || currentResult.isBetterThan(Result.ABORTED))
                 && BuildCommand.BuildFailure.ImageAlreadyExists.equals(buildFailure);
-
     }
 
     private void checkMountSettings() {

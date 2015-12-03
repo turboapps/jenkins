@@ -4,7 +4,7 @@ import hudson.model.BuildListener;
 
 import java.io.PrintStream;
 
-public class LogUtils {
+public final class LogUtils {
     public static void log(BuildListener listener, String msg, Throwable th) {
         PrintStream output = listener.getLogger();
         output.println(msg);
