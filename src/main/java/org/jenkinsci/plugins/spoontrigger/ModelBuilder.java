@@ -1,6 +1,5 @@
 package org.jenkinsci.plugins.spoontrigger;
 
-import com.google.common.base.Optional;
 import com.google.common.reflect.TypeToken;
 import hudson.Extension;
 import hudson.Launcher;
@@ -12,6 +11,8 @@ import hudson.tasks.Builder;
 import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.spoontrigger.client.BaseCommand;
+import org.jenkinsci.plugins.spoontrigger.client.ModelCommand;
+import org.jenkinsci.plugins.spoontrigger.client.SpoonClient;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.schtasks.ScheduledTasksApi;
 import org.jenkinsci.plugins.spoontrigger.utils.TaskListeners;
@@ -51,14 +52,17 @@ public class ModelBuilder extends Builder {
     public boolean perform(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
         try {
             SpoonBuild build = (SpoonBuild) abstractBuild;
-            Optional<Image> outputImage = build.getBuiltImage();
-            checkState(outputImage.isPresent(), "Output image is not available in build information");
+            Image outputImage = build.getBuiltImage().orNull();
+            checkState(outputImage != null, "Output image is not available in build information");
 
             Path tempDir = createTempDir(build);
             Path transcriptDir = Paths.get(tempDir.toString(), TRANSCRIPT_DIR).toAbsolutePath();
-            // Path modelDir = Paths.get(tempDir.toString(), MODEL_DIR).toAbsolutePath();
+            Path modelDir = Paths.get(tempDir.toString(), MODEL_DIR).toAbsolutePath();
             try {
-                profile(outputImage.get(), transcriptDir, build, launcher, listener);
+                profile(outputImage, transcriptDir, build, launcher, listener);
+
+                SpoonClient client = SpoonClient.builder(build).launcher(launcher).listener(listener).build();
+                model(client, outputImage, transcriptDir, modelDir);
             } finally {
                 deleteDirectoryTree(tempDir);
             }
@@ -68,6 +72,14 @@ public class ModelBuilder extends Builder {
             TaskListeners.logFatalError(listener, ex);
             return false;
         }
+    }
+
+    private void model(SpoonClient client, Image image, Path transcriptDir, Path modelDir) {
+        ModelCommand modelCommand = ModelCommand.builder().image(image.printIdentifier())
+                .transcriptDirectory(transcriptDir.toString())
+                .modelDirectory(modelDir.toString())
+                .build();
+        modelCommand.run(client);
     }
 
     /**
