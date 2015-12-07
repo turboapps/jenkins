@@ -45,7 +45,7 @@ abstract class SpoonBasePublisher extends Publisher {
         checkState(buildResult.get().isBetterThan(Result.FAILURE), "%s requires a healthy build to continue. Result of the current build is %s.",
                 Messages.toString(this.getClass()), buildResult.get());
 
-        Optional<Image> builtImage = build.getBuiltImage();
+        Optional<Image> builtImage = build.getOutputImage();
 
         checkState(builtImage.isPresent(), REQUIRE_PRESENT_S, "built image");
 

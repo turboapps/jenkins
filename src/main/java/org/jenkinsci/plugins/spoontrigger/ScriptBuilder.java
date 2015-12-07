@@ -152,7 +152,7 @@ public class ScriptBuilder extends Builder {
 
             Optional<Image> outputImage = command.getOutputImage();
             if (outputImage.isPresent()) {
-                build.setBuiltImage(outputImage.get());
+                build.setOutputImage(outputImage.get());
                 return true;
             }
 
@@ -172,7 +172,6 @@ public class ScriptBuilder extends Builder {
         BuildCommand.BuildFailure buildFailure = command.getError();
         return (currentResult == null || currentResult.isBetterThan(Result.ABORTED))
                 && BuildCommand.BuildFailure.ImageAlreadyExists.equals(buildFailure);
-
     }
 
     private void checkMountSettings() {

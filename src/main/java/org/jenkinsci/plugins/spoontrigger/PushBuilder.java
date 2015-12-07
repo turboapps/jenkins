@@ -1,7 +1,5 @@
 package org.jenkinsci.plugins.spoontrigger;
 
-import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
-import com.google.common.base.Optional;
 import com.google.common.reflect.TypeToken;
 import hudson.Extension;
 import hudson.Launcher;
@@ -75,8 +73,6 @@ public class PushBuilder extends Builder {
     public boolean prebuild(AbstractBuild<?, ?> abstractBuild, BuildListener listener) {
         checkArgument(abstractBuild instanceof SpoonBuild, requireInstanceOf("build", SpoonBuild.class));
 
-        this.remoteImageStrategy.validate(getPushConfig(), (SpoonBuild) abstractBuild);
-
         return true;
     }
 
@@ -84,15 +80,24 @@ public class PushBuilder extends Builder {
     public boolean perform(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
         try {
             SpoonBuild build = (SpoonBuild) abstractBuild;
+            Image localImage = build.getOutputImage().orNull();
+            checkState(localImage != null, REQUIRE_OUTPUT_IMAGE);
 
-            if (shouldAbort(build, listener)) {
+            PushConfig pushConfig = cratePushConfig(localImage);
+
+            Image remoteImage = remoteImageStrategy.getRemoteImage(pushConfig, build);
+            if (shouldAbort(remoteImage, build, listener)) {
                 build.setResult(Result.ABORTED);
                 return false;
             }
 
+            if (!localImage.equals(remoteImage)) {
+                build.setRemoteImage(remoteImage);
+            }
+
             SpoonClient client = SpoonClient.builder(build).launcher(launcher).listener(listener).build();
-            Pusher pusher = new Pusher(remoteImageStrategy, client);
-            pusher.push(getPushConfig(), build);
+            Pusher pusher = new Pusher(client);
+            pusher.push(build);
             return true;
         } catch (IllegalStateException ex) {
             TaskListeners.logFatalError(listener, ex);
@@ -100,7 +105,7 @@ public class PushBuilder extends Builder {
         }
     }
 
-    private boolean shouldAbort(SpoonBuild build, BuildListener listener) {
+    private boolean shouldAbort(Image remoteImage, SpoonBuild build, BuildListener listener) {
         if (build.isAllowOverwrite()) {
             return false;
         }
@@ -110,7 +115,6 @@ public class PushBuilder extends Builder {
             return false;
         }
 
-        Image remoteImage = getRemoteImage(build);
         if (remoteImage.getNamespace() == null) {
             String msg = "Check if image " + remoteImage.printIdentifier() + " is available remotely is skipped," +
                     " because the image name does not specify namespace and it can't be extracted" +
@@ -139,29 +143,14 @@ public class PushBuilder extends Builder {
         }
     }
 
-    private Image getRemoteImage(SpoonBuild build) {
-        Optional<Image> outputImage = build.getBuiltImage();
-
-        checkState(outputImage.isPresent());
-
-        Image image = outputImage.get();
-        Optional<Image> remoteImageName = this.remoteImageStrategy.tryGetRemoteImage(getPushConfig(), build);
-        final Image imageToUse = remoteImageName.or(image);
-        if (imageToUse.getNamespace() == null) {
-            Optional<StandardUsernamePasswordCredentials> credentials = build.getCredentials();
-            if (credentials.isPresent()) {
-                return new Image(credentials.get().getUsername(), imageToUse.getRepo(), imageToUse.getTag());
-            }
-        }
-
-        return imageToUse;
-    }
-
-    private PushConfig getPushConfig() {
-        if (pushConfig == null) {
-            pushConfig = new PushConfig(remoteImageName, dateFormat, appendDate, organization, overwriteOrganization);
-        }
-        return pushConfig;
+    private PushConfig cratePushConfig(Image localImage) {
+        return new PushConfig(
+                localImage,
+                remoteImageName,
+                dateFormat,
+                appendDate,
+                organization,
+                overwriteOrganization);
     }
 
     @Extension

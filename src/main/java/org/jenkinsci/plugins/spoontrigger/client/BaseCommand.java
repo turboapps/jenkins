@@ -1,11 +1,13 @@
 package org.jenkinsci.plugins.spoontrigger.client;
 
 import hudson.util.ArgumentListBuilder;
+import lombok.Getter;
 
-abstract class BaseCommand {
+public abstract class BaseCommand {
 
-    static final String SPOON_CLIENT = "turbo";
+    public static final String SPOON_CLIENT = "turbo";
 
+    @Getter
     private final ArgumentListBuilder argumentList;
 
     BaseCommand(ArgumentListBuilder argumentList) {
