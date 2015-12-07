@@ -2,7 +2,7 @@ package org.jenkinsci.plugins.spoontrigger;
 
 public final class Messages {
     public static final String REQUIRED_PARAMETER = "Parameter is required";
-    public static final String IGNORE_PARAMETER = "Parameter is ignored";
+    public static final String IGNORE_PARAMETER = "Empty value is ignored";
 
     public static final String REQUIRE_SINGLE_WORD_S = "%s must be a single word";
     public static final String REQUIRE_SINGLE_WORD_SP = "%s (%s) must be a single word";

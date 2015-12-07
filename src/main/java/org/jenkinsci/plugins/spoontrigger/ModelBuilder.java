@@ -4,13 +4,13 @@ import com.google.common.base.Optional;
 import com.google.common.reflect.TypeToken;
 import hudson.Extension;
 import hudson.Launcher;
-import hudson.model.AbstractBuild;
-import hudson.model.AbstractProject;
-import hudson.model.BuildListener;
+import hudson.Util;
+import hudson.model.*;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
-import net.sf.json.JSONException;
-import net.sf.json.JSONObject;
+import hudson.util.FormValidation;
+import lombok.Data;
+import lombok.Getter;
 import org.jenkinsci.plugins.spoontrigger.client.BaseCommand;
 import org.jenkinsci.plugins.spoontrigger.client.ModelCommand;
 import org.jenkinsci.plugins.spoontrigger.client.PushModelCommand;
@@ -18,10 +18,13 @@ import org.jenkinsci.plugins.spoontrigger.client.SpoonClient;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.schtasks.ScheduledTasksApi;
 import org.jenkinsci.plugins.spoontrigger.utils.TaskListeners;
+import org.jenkinsci.plugins.spoontrigger.validation.*;
 import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.StaplerRequest;
+import org.kohsuke.stapler.QueryParameter;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -29,20 +32,24 @@ import java.util.Locale;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static org.jenkinsci.plugins.spoontrigger.Messages.IGNORE_PARAMETER;
+import static org.jenkinsci.plugins.spoontrigger.Messages.REQUIRE_OUTPUT_IMAGE;
 import static org.jenkinsci.plugins.spoontrigger.Messages.requireInstanceOf;
 import static org.jenkinsci.plugins.spoontrigger.utils.FileUtils.deleteDirectoryTree;
 import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
-
-import static org.jenkinsci.plugins.spoontrigger.Messages.*;
 
 public class ModelBuilder extends Builder {
 
     private static final String TRANSCRIPT_DIR = "transcripts";
     private static final String MODEL_DIR = "model";
 
-    @DataBoundConstructor
-    public ModelBuilder() {
+    @Nullable
+    @Getter
+    private final PushGuardSettings pushGuardSettings;
 
+    @DataBoundConstructor
+    public ModelBuilder(@Nullable PushGuardSettings pushGuardSettings) {
+        this.pushGuardSettings = pushGuardSettings;
     }
 
     @Override
@@ -64,10 +71,13 @@ public class ModelBuilder extends Builder {
             Path modelDir = Paths.get(tempDir.toString(), MODEL_DIR).toAbsolutePath();
             try {
                 profile(outputImage, transcriptDir, build, launcher, listener);
-
                 SpoonClient client = SpoonClient.builder(build).launcher(launcher).listener(listener).build();
                 model(client, outputImage, transcriptDir, modelDir);
-                pushModel(client, build, outputImage, modelDir);
+                if (shouldPushModel(modelDir, listener)) {
+                    pushModel(client, build, outputImage, modelDir);
+                } else {
+                    build.setResult(Result.UNSTABLE);
+                }
             } finally {
                 deleteDirectoryTree(tempDir);
             }
@@ -76,6 +86,14 @@ public class ModelBuilder extends Builder {
         } catch (IllegalStateException ex) {
             TaskListeners.logFatalError(listener, ex);
             return false;
+        }
+    }
+
+    public Double getMinBufferSize() {
+        if (pushGuardSettings != null) {
+            return pushGuardSettings.getMinBufferSizeMB().orNull();
+        } else {
+            return null;
         }
     }
 
@@ -99,6 +117,34 @@ public class ModelBuilder extends Builder {
                 .modelDirectory(modelDir.toString())
                 .build();
         modelCommand.run(client);
+    }
+
+    private long getBufferSize(Path modelDir) {
+        File prefetchFile = Paths.get(modelDir.toString(), "p.xs").toFile();
+        if (prefetchFile.exists()) {
+            return prefetchFile.length();
+        }
+        return 0L;
+    }
+
+    private boolean shouldPushModel(Path modelDir, BuildListener listener) {
+        if (pushGuardSettings == null) {
+            return true;
+        }
+
+        Optional<Double> minBufferSizeMB = pushGuardSettings.getMinBufferSizeMB();
+        if (minBufferSizeMB.isPresent()) {
+            final long minBufferSize = Double.valueOf(minBufferSizeMB.get() * 1024 * 1024).longValue();
+            final long actualBufferSize = getBufferSize(modelDir);
+            if (actualBufferSize < minBufferSize) {
+                double actualBufferSizeInMB = (double) actualBufferSize / (1024.0 * 1024.0);
+                String msg = String.format("Buffer size of %.2f MB is below the specified limit", actualBufferSizeInMB);
+                log(listener, msg);
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -166,8 +212,40 @@ public class ModelBuilder extends Builder {
         return projectName.toLowerCase(Locale.ROOT);
     }
 
+    @Data
+    public static final class PushGuardSettings {
+        @Getter
+        private Optional<Double> minBufferSizeMB;
+
+        @DataBoundConstructor
+        public PushGuardSettings(String minBufferSize) {
+            this.minBufferSizeMB = parseDouble(minBufferSize);
+        }
+
+        private Optional<Double> parseDouble(String value) {
+            final String valueToParse = Util.fixEmptyAndTrim(value);
+            if (valueToParse == null) {
+                return Optional.absent();
+            }
+
+            try {
+                return Optional.of(Double.valueOf(valueToParse));
+            } catch (NumberFormatException ex) {
+                return Optional.absent();
+            }
+        }
+    }
+
     @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
+        private static final Validator<String> NULL_OR_POSITIVE_FLOATING_POINT_NUMBER;
+
+        static {
+            NULL_OR_POSITIVE_FLOATING_POINT_NUMBER = Validators.chain(
+                    StringValidators.isNotNull(IGNORE_PARAMETER, Level.OK),
+                    new PositiveFloatingPointNumberValidator()
+            );
+        }
 
         @Override
         public boolean isApplicable(Class<? extends AbstractProject> aClass) {
@@ -179,12 +257,25 @@ public class ModelBuilder extends Builder {
             return "Build Turbo model";
         }
 
-        @Override
-        public Builder newInstance(StaplerRequest req, JSONObject formData) throws FormException {
-            try {
-                return new ModelBuilder();
-            } catch (JSONException ex) {
-                throw new IllegalStateException("Error while parsing data form", ex);
+        public FormValidation doCheckMinBufferSize(@QueryParameter String value) {
+            String minBufferSize = Util.fixEmptyAndTrim(value);
+            return Validators.validate(NULL_OR_POSITIVE_FLOATING_POINT_NUMBER, minBufferSize);
+        }
+
+        private static class PositiveFloatingPointNumberValidator implements Validator<String> {
+
+            @Override
+            public void validate(String value) throws ValidationException {
+                try {
+                    double parsedValue = Double.parseDouble(value);
+                    if (parsedValue <= 0.0) {
+                        FormValidation formValidation = FormValidation.error("Negative values or zero are not allowed");
+                        throw new ValidationException(formValidation);
+                    }
+                } catch (NumberFormatException ex) {
+                    FormValidation formValidation = FormValidation.error("Value is not a valid number");
+                    throw new ValidationException(formValidation);
+                }
             }
         }
     }

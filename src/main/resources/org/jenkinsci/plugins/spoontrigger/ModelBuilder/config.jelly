@@ -1,0 +1,8 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+    <f:optionalBlock title="Enable conditional push" name="pushGuardSettings" checked="${instance.pushGuardSettings ne null}">
+        <f:entry title="Minimum buffer size" field="minBufferSize">
+            <f:textbox checkUrl="'descriptorByName/ModelBuilder/checkMinBufferSize?value='+escape(this.value)"/>
+        </f:entry>
+    </f:optionalBlock>
+</j:jelly>
