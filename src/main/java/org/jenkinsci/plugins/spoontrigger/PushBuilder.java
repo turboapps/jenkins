@@ -1,7 +1,5 @@
 package org.jenkinsci.plugins.spoontrigger;
 
-import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
-import com.google.common.base.Optional;
 import com.google.common.reflect.TypeToken;
 import hudson.Extension;
 import hudson.Launcher;
@@ -82,7 +80,7 @@ public class PushBuilder extends Builder {
     public boolean perform(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
         try {
             SpoonBuild build = (SpoonBuild) abstractBuild;
-            Image localImage = build.getBuiltImage().orNull();
+            Image localImage = build.getOutputImage().orNull();
             checkState(localImage != null, REQUIRE_OUTPUT_IMAGE);
 
             PushConfig pushConfig = cratePushConfig(localImage);

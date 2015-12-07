@@ -63,7 +63,7 @@ public class ModelBuilder extends Builder {
     public boolean perform(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
         try {
             SpoonBuild build = (SpoonBuild) abstractBuild;
-            Image outputImage = build.getBuiltImage().orNull();
+            Image outputImage = build.getOutputImage().orNull();
             checkState(outputImage != null, REQUIRE_OUTPUT_IMAGE);
 
             Path tempDir = createTempDir(build);

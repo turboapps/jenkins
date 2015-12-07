@@ -22,7 +22,7 @@ public class SpoonBuild extends Build<SpoonProject, SpoonBuild> {
     @Getter
     private Optional<StandardUsernamePasswordCredentials> credentials = Optional.absent();
     @Getter
-    private Optional<Image> builtImage = Optional.absent();
+    private Optional<Image> outputImage = Optional.absent();
     @Getter
     private Optional<Image> remoteImage = Optional.absent();
     @Getter
@@ -43,12 +43,23 @@ public class SpoonBuild extends Build<SpoonProject, SpoonBuild> {
         return new Date(startTime);
     }
 
+    /**
+     * @deprecated kept for backwards compatibility with Twitter Plugin
+     */
+    @Deprecated
+    public Optional<String> getBuiltImage() {
+        if (outputImage.isPresent()) {
+            return Optional.of(outputImage.get().printIdentifier());
+        }
+        return Optional.absent();
+    }
+
     void setCredentials(StandardUsernamePasswordCredentials credentials) {
         this.credentials = Optional.of(credentials);
     }
 
-    void setBuiltImage(Image builtImage) {
-        this.builtImage = Optional.of(builtImage);
+    void setOutputImage(Image outputImage) {
+        this.outputImage = Optional.of(outputImage);
     }
 
     void setRemoteImage(Image remoteImage) {

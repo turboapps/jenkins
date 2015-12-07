@@ -34,12 +34,12 @@ public class Pusher {
             checkState(buildResult.get().isBetterThan(Result.FAILURE), "%s requires a healthy build to continue. Result of the current build is %s.",
                     Messages.toString(this.getClass()), buildResult.get());
         }
-        Optional<Image> builtImage = build.getBuiltImage();
+        Optional<Image> builtImage = build.getOutputImage();
         checkState(builtImage.isPresent(), REQUIRE_PRESENT_S, "built image");
     }
 
     private PushCommand createPushCommand(SpoonBuild build) {
-        Optional<Image> builtImage = build.getBuiltImage();
+        Optional<Image> builtImage = build.getOutputImage();
         PushCommand.CommandBuilder cmdBuilder = PushCommand.builder().image(builtImage.get().printIdentifier());
 
         Optional<Image> remoteImage = build.getRemoteImage();

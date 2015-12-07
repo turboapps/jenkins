@@ -152,7 +152,7 @@ public class ScriptBuilder extends Builder {
 
             Optional<Image> outputImage = command.getOutputImage();
             if (outputImage.isPresent()) {
-                build.setBuiltImage(outputImage.get());
+                build.setOutputImage(outputImage.get());
                 return true;
             }
 
