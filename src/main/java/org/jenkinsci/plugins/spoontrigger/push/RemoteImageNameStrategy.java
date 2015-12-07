@@ -1,5 +1,6 @@
 package org.jenkinsci.plugins.spoontrigger.push;
 
+import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import hudson.plugins.git.util.BuildData;
@@ -97,8 +98,22 @@ public enum RemoteImageNameStrategy {
         }
     };
 
-    public abstract Optional<Image> tryGetRemoteImage(PushConfig pushConfig, SpoonBuild build);
+    public Image getRemoteImage(PushConfig config, SpoonBuild build) {
+        validate(config, build);
 
-    public void validate(PushConfig pushConfig, SpoonBuild build) {
+        Optional<Image> remoteImageName = tryGetRemoteImage(config, build);
+        final Image imageToUse = remoteImageName.or(config.getLocalImage());
+        if (imageToUse.getNamespace() == null) {
+            Optional<StandardUsernamePasswordCredentials> credentials = build.getCredentials();
+            if (credentials.isPresent()) {
+                return new Image(credentials.get().getUsername(), imageToUse.getRepo(), imageToUse.getTag());
+            }
+        }
+        return imageToUse;
     }
+
+    protected void validate(PushConfig pushConfig, SpoonBuild build) {
+    }
+
+    protected abstract Optional<Image> tryGetRemoteImage(PushConfig pushConfig, SpoonBuild build);
 }

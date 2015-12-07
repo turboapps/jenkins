@@ -1,5 +1,6 @@
 package org.jenkinsci.plugins.spoontrigger;
 
+import com.google.common.base.Optional;
 import com.google.common.reflect.TypeToken;
 import hudson.Extension;
 import hudson.Launcher;
@@ -12,6 +13,7 @@ import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.spoontrigger.client.BaseCommand;
 import org.jenkinsci.plugins.spoontrigger.client.ModelCommand;
+import org.jenkinsci.plugins.spoontrigger.client.PushModelCommand;
 import org.jenkinsci.plugins.spoontrigger.client.SpoonClient;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.schtasks.ScheduledTasksApi;
@@ -30,6 +32,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.requireInstanceOf;
 import static org.jenkinsci.plugins.spoontrigger.utils.FileUtils.deleteDirectoryTree;
 import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
+
+import static org.jenkinsci.plugins.spoontrigger.Messages.*;
 
 public class ModelBuilder extends Builder {
 
@@ -53,7 +57,7 @@ public class ModelBuilder extends Builder {
         try {
             SpoonBuild build = (SpoonBuild) abstractBuild;
             Image outputImage = build.getBuiltImage().orNull();
-            checkState(outputImage != null, "Output image is not available in build information");
+            checkState(outputImage != null, REQUIRE_OUTPUT_IMAGE);
 
             Path tempDir = createTempDir(build);
             Path transcriptDir = Paths.get(tempDir.toString(), TRANSCRIPT_DIR).toAbsolutePath();
@@ -63,6 +67,7 @@ public class ModelBuilder extends Builder {
 
                 SpoonClient client = SpoonClient.builder(build).launcher(launcher).listener(listener).build();
                 model(client, outputImage, transcriptDir, modelDir);
+                pushModel(client, build, outputImage, modelDir);
             } finally {
                 deleteDirectoryTree(tempDir);
             }
@@ -72,6 +77,20 @@ public class ModelBuilder extends Builder {
             TaskListeners.logFatalError(listener, ex);
             return false;
         }
+    }
+
+    private void pushModel(SpoonClient client, SpoonBuild build, Image localImage, Path modelDir) {
+        PushModelCommand.CommandBuilder builder = PushModelCommand.builder()
+                .localImage(localImage.printIdentifier())
+                .modelDirectory(modelDir.toString());
+
+        Optional<Image> remoteImage = build.getRemoteImage();
+        if (remoteImage.isPresent()) {
+            builder.remoteImage(remoteImage.get().printIdentifier());
+        }
+
+        PushModelCommand pushModelCommand = builder.build();
+        pushModelCommand.run(client);
     }
 
     private void model(SpoonClient client, Image image, Path transcriptDir, Path modelDir) {

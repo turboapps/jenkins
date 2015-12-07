@@ -1,6 +1,5 @@
 package org.jenkinsci.plugins.spoontrigger;
 
-import com.google.common.base.Optional;
 import com.google.common.reflect.TypeToken;
 import hudson.Extension;
 import hudson.Launcher;
@@ -55,8 +54,6 @@ public class PushPublisher extends SpoonBasePublisher {
     @Getter
     private final boolean overwriteOrganization;
 
-    private transient PushConfig pushConfig;
-
     @DataBoundConstructor
     public PushPublisher(@Nullable RemoteImageNameStrategy remoteImageStrategy,
                          @Nullable String organization, boolean overwriteOrganization,
@@ -70,13 +67,6 @@ public class PushPublisher extends SpoonBasePublisher {
     }
 
     @Override
-    public void beforePublish(SpoonBuild build, BuildListener listener) {
-        super.beforePublish(build, listener);
-
-        this.remoteImageStrategy.validate(getPushConfig(), build);
-    }
-
-    @Override
     public void publish(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) throws IllegalStateException {
         SpoonBuild build = (SpoonBuild) abstractBuild;
         SpoonClient client = super.createClient(build, launcher, listener);
@@ -85,21 +75,26 @@ public class PushPublisher extends SpoonBasePublisher {
     }
 
     private PushCommand createPushCommand(SpoonBuild spoonBuild) {
-        PushCommand.CommandBuilder cmdBuilder = PushCommand.builder().image(super.getImage().get().printIdentifier());
+        Image localImage = getImage().get();
+        PushCommand.CommandBuilder cmdBuilder = PushCommand.builder().image(localImage.printIdentifier());
 
-        Optional<Image> remoteImage = this.remoteImageStrategy.tryGetRemoteImage(getPushConfig(), spoonBuild);
-        if (remoteImage.isPresent()) {
-            cmdBuilder.remoteImage(remoteImage.get().printIdentifier());
+        PushConfig pushConfig = cratePushConfig(localImage);
+        Image remoteImage = remoteImageStrategy.getRemoteImage(pushConfig, spoonBuild);
+        if (!remoteImage.equals(localImage)) {
+            cmdBuilder.remoteImage(remoteImage.printIdentifier());
         }
 
         return cmdBuilder.build();
     }
 
-    private PushConfig getPushConfig() {
-        if (pushConfig == null) {
-            pushConfig = new PushConfig(remoteImageName, dateFormat, appendDate, organization, overwriteOrganization);
-        }
-        return pushConfig;
+    private PushConfig cratePushConfig(Image localImage) {
+        return new PushConfig(
+                localImage,
+                remoteImageName,
+                dateFormat,
+                appendDate,
+                organization,
+                overwriteOrganization);
     }
 
     @Extension

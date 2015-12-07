@@ -24,6 +24,8 @@ public class SpoonBuild extends Build<SpoonProject, SpoonBuild> {
     @Getter
     private Optional<Image> builtImage = Optional.absent();
     @Getter
+    private Optional<Image> remoteImage = Optional.absent();
+    @Getter
     private Optional<FilePath> script = Optional.absent();
     @Getter
     private Optional<EnvVars> env = Optional.absent();
@@ -47,6 +49,10 @@ public class SpoonBuild extends Build<SpoonProject, SpoonBuild> {
 
     void setBuiltImage(Image builtImage) {
         this.builtImage = Optional.of(builtImage);
+    }
+
+    void setRemoteImage(Image remoteImage) {
+        this.remoteImage = Optional.of(remoteImage);
     }
 
     void setScript(FilePath script) {

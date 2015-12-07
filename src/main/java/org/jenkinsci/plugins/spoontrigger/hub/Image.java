@@ -1,5 +1,6 @@
 package org.jenkinsci.plugins.spoontrigger.hub;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -7,6 +8,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@EqualsAndHashCode
 public class Image {
     private static final Pattern ParseImageNamePattern = Pattern.compile("^(?:(?<namespace>[^\\s/]+)/)?(?<repo>[^\\s:]+)(?::(?<tag>\\S+))?$");
 

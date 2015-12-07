@@ -13,6 +13,8 @@ public final class Messages {
     public static final String REQUIRE_NON_EMPTY_STRING_S = "%s must be a non empty string";
     public static final String REQUIRE_VALID_FORMAT_SP = "%s (%s) does not have a valid format";
 
+    public static final String REQUIRE_OUTPUT_IMAGE = "Output image name is not available in build information";
+
     public static final String FAILED_RESOLVE_PLACEHOLDER = "<failed to resolve>";
     public static final String FAILED_RESOLVE_S = "Failed to resolve %s";
     public static final String FAILED_RESOLVE_SP = FAILED_RESOLVE_S + " (%s)";
