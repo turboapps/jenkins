@@ -1,0 +1,11 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:f="/lib/form">
+    <f:section title="Studio Snapshot">
+        <f:entry title="XStudio Path" field="xStudioPath">
+            <f:textbox checkUrl="'descriptorByName/SnapshotBuilder/checkXStudioPath?value='+escape(this.value)"/>
+        </f:entry>
+        <f:entry title="XStudio License" field="xStudioLicensePath">
+            <f:textbox checkUrl="'descriptorByName/SnapshotBuilder/checkXStudioLicensePath?value='+escape(this.value)"/>
+        </f:entry>
+    </f:section>
+</j:jelly>
