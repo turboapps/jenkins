@@ -10,6 +10,9 @@
         <c:select checkUrl="'descriptorByName/ScriptBuilder/checkCredentialsId?value='+escape(this.value)"/>
     </f:entry>
     <f:advanced>
+        <f:entry title="Hub" field="hubUrl">
+            <f:textbox checkUrl="'descriptorByName/ScriptBuilder/checkHubUrl?value='+escape(this.value)"/>
+        </f:entry>
         <f:entry title="Image name" field="imageName">
             <f:textbox checkUrl="'descriptorByName/ScriptBuilder/checkImageName?value='+escape(this.value)"/>
         </f:entry>
