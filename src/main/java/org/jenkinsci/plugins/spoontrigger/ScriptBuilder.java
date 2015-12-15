@@ -13,10 +13,7 @@ import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import lombok.Data;
 import lombok.Getter;
-import org.jenkinsci.plugins.spoontrigger.client.BuildCommand;
-import org.jenkinsci.plugins.spoontrigger.client.LoginCommand;
-import org.jenkinsci.plugins.spoontrigger.client.SpoonClient;
-import org.jenkinsci.plugins.spoontrigger.client.VersionCommand;
+import org.jenkinsci.plugins.spoontrigger.client.*;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.utils.AutoCompletion;
 import org.jenkinsci.plugins.spoontrigger.utils.Credentials;
@@ -48,6 +45,9 @@ public class ScriptBuilder extends Builder {
     private final String credentialsId;
     @Nullable
     @Getter
+    private final String hubUrl;
+    @Nullable
+    @Getter
     private final String imageName;
     @Nullable
     @Getter
@@ -68,11 +68,12 @@ public class ScriptBuilder extends Builder {
     private final boolean overwrite;
 
     @DataBoundConstructor
-    public ScriptBuilder(String scriptFilePath, String credentialsId, String imageName,
+    public ScriptBuilder(String scriptFilePath, String credentialsId, String hubUrl, String imageName,
                          String vmVersion, String containerWorkingDir, @Nullable MountSettings mountSettings,
                          boolean noBase, boolean overwrite, boolean diagnostic) {
         this.scriptFilePath = Util.fixEmptyAndTrim(scriptFilePath);
         this.credentialsId = Util.fixEmptyAndTrim(credentialsId);
+        this.hubUrl = Util.fixEmptyAndTrim(hubUrl);
         this.imageName = Util.fixEmptyAndTrim(imageName);
         this.vmVersion = Util.fixEmptyAndTrim(vmVersion);
         this.containerWorkingDir = Util.fixEmptyAndTrim(containerWorkingDir);
@@ -142,6 +143,8 @@ public class ScriptBuilder extends Builder {
 
             checkSpoonPluginIsRunning(client);
 
+            switchHub(client);
+
             Optional<StandardUsernamePasswordCredentials> credentials = build.getCredentials();
             if (credentials.isPresent()) {
                 login(client, credentials.get());
@@ -185,6 +188,18 @@ public class ScriptBuilder extends Builder {
     private void checkSpoonPluginIsRunning(SpoonClient client) {
         VersionCommand versionCmd = VersionCommand.builder().build();
         versionCmd.run(client);
+    }
+
+    private void switchHub(SpoonClient client) {
+        ConfigCommand.CommandBuilder cmdBuilder = ConfigCommand.builder();
+        if (Strings.isNullOrEmpty(this.hubUrl)) {
+            cmdBuilder.reset(true);
+        } else {
+            cmdBuilder.hub(this.hubUrl);
+        }
+
+        ConfigCommand configCommand = cmdBuilder.build();
+        configCommand.run(client);
     }
 
     private void login(SpoonClient client, StandardUsernamePasswordCredentials credentials) {
@@ -329,6 +344,11 @@ public class ScriptBuilder extends Builder {
 
         private static boolean doNotHasPermissions(Item project) {
             return project == null || !project.hasPermission(Item.CONFIGURE);
+        }
+
+        public FormValidation doCheckHubUrl(@QueryParameter String value) {
+            String hubUrl = Util.fixEmptyAndTrim(value);
+            return Validators.validate(NULL_OR_SINGLE_WORD_VALIDATOR, hubUrl);
         }
 
         public FormValidation doCheckScriptFilePath(@QueryParameter String value) {
