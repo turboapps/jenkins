@@ -89,14 +89,6 @@ public class ModelBuilder extends Builder {
         }
     }
 
-    public Double getMinBufferSize() {
-        if (pushGuardSettings != null) {
-            return pushGuardSettings.getMinBufferSizeMB().orNull();
-        } else {
-            return null;
-        }
-    }
-
     private void pushModel(SpoonClient client, SpoonBuild build, Image localImage, Path modelDir) {
         PushModelCommand.CommandBuilder builder = PushModelCommand.builder()
                 .localImage(localImage.printIdentifier())
