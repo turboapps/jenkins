@@ -13,8 +13,4 @@ public abstract class BaseCommand {
     BaseCommand(ArgumentListBuilder argumentList) {
         this.argumentList = argumentList;
     }
-
-    ArgumentListBuilder getArgumentList() {
-        return argumentList;
-    }
 }
