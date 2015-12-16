@@ -14,7 +14,7 @@ import hudson.util.FormValidation;
 import lombok.Getter;
 import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
-import org.jenkinsci.plugins.spoontrigger.client.SpoonClient;
+import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.hub.HubApi;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.push.PushConfig;
@@ -95,7 +95,7 @@ public class PushBuilder extends Builder {
                 build.setRemoteImage(remoteImage);
             }
 
-            SpoonClient client = SpoonClient.builder(build).launcher(launcher).listener(listener).build();
+            CommandDriver client = CommandDriver.builder(build).launcher(launcher).listener(listener).build();
             Pusher pusher = new Pusher(client);
             pusher.push(build);
             return true;

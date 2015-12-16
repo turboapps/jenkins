@@ -1,4 +1,4 @@
-package org.jenkinsci.plugins.spoontrigger.client;
+package org.jenkinsci.plugins.spoontrigger.commands;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;

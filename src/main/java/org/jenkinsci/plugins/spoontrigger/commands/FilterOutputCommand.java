@@ -1,4 +1,4 @@
-package org.jenkinsci.plugins.spoontrigger.client;
+package org.jenkinsci.plugins.spoontrigger.commands;
 
 import com.google.common.io.Closeables;
 import hudson.util.ArgumentListBuilder;
@@ -15,11 +15,11 @@ public class FilterOutputCommand extends BaseCommand {
     private int errorCode = 0;
     private OutputStreamCollector outputStream;
 
-    FilterOutputCommand(ArgumentListBuilder argumentList) {
+    protected FilterOutputCommand(ArgumentListBuilder argumentList) {
         super(argumentList);
     }
 
-    public void run(SpoonClient client) throws IllegalStateException {
+    public void run(CommandDriver client) throws IllegalStateException {
         this.outputStream = new OutputStreamCollector(client.getLogger(), client.getCharset());
         try {
             errorCode = client.launch(this.getArgumentList(), this.outputStream);

@@ -8,8 +8,8 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Publisher;
 import hudson.util.FormValidation;
 import lombok.Getter;
-import org.jenkinsci.plugins.spoontrigger.client.ExportCommand;
-import org.jenkinsci.plugins.spoontrigger.client.SpoonClient;
+import org.jenkinsci.plugins.spoontrigger.commands.turbo.ExportCommand;
+import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.utils.AutoCompletion;
 import org.jenkinsci.plugins.spoontrigger.utils.FileResolver;
 import org.jenkinsci.plugins.spoontrigger.validation.*;
@@ -49,7 +49,7 @@ public class ExportPublisher extends SpoonBasePublisher {
 
     @Override
     public void publish(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) throws IllegalStateException {
-        SpoonClient client = super.createClient(abstractBuild, launcher, listener);
+        CommandDriver client = super.createClient(abstractBuild, launcher, listener);
         ExportCommand exportCmd = this.createExportCommand();
         exportCmd.run(client);
     }

@@ -11,10 +11,10 @@ import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 import lombok.Data;
 import lombok.Getter;
-import org.jenkinsci.plugins.spoontrigger.client.BaseCommand;
-import org.jenkinsci.plugins.spoontrigger.client.ModelCommand;
-import org.jenkinsci.plugins.spoontrigger.client.PushModelCommand;
-import org.jenkinsci.plugins.spoontrigger.client.SpoonClient;
+import org.jenkinsci.plugins.spoontrigger.commands.BaseCommand;
+import org.jenkinsci.plugins.spoontrigger.commands.turbo.ModelCommand;
+import org.jenkinsci.plugins.spoontrigger.commands.turbo.PushModelCommand;
+import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.schtasks.ScheduledTasksApi;
 import org.jenkinsci.plugins.spoontrigger.utils.TaskListeners;
@@ -71,7 +71,7 @@ public class ModelBuilder extends Builder {
             Path modelDir = Paths.get(tempDir.toString(), MODEL_DIR).toAbsolutePath();
             try {
                 profile(outputImage, transcriptDir, build, launcher, listener);
-                SpoonClient client = SpoonClient.builder(build).launcher(launcher).listener(listener).build();
+                CommandDriver client = CommandDriver.builder(build).launcher(launcher).listener(listener).build();
                 model(client, outputImage, transcriptDir, modelDir);
                 if (shouldPushModel(modelDir, listener)) {
                     pushModel(client, build, outputImage, modelDir);
@@ -89,7 +89,7 @@ public class ModelBuilder extends Builder {
         }
     }
 
-    private void pushModel(SpoonClient client, SpoonBuild build, Image localImage, Path modelDir) {
+    private void pushModel(CommandDriver client, SpoonBuild build, Image localImage, Path modelDir) {
         PushModelCommand.CommandBuilder builder = PushModelCommand.builder()
                 .localImage(localImage.printIdentifier())
                 .modelDirectory(modelDir.toString());
@@ -103,7 +103,7 @@ public class ModelBuilder extends Builder {
         pushModelCommand.run(client);
     }
 
-    private void model(SpoonClient client, Image image, Path transcriptDir, Path modelDir) {
+    private void model(CommandDriver client, Image image, Path transcriptDir, Path modelDir) {
         ModelCommand modelCommand = ModelCommand.builder().image(image.printIdentifier())
                 .transcriptDirectory(transcriptDir.toString())
                 .modelDirectory(modelDir.toString())

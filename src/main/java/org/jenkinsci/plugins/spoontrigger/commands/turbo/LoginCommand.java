@@ -1,9 +1,10 @@
-package org.jenkinsci.plugins.spoontrigger.client;
+package org.jenkinsci.plugins.spoontrigger.commands.turbo;
 
 import com.google.common.base.Optional;
 import hudson.Util;
 import hudson.util.ArgumentListBuilder;
 import hudson.util.Secret;
+import org.jenkinsci.plugins.spoontrigger.commands.VoidCommand;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;

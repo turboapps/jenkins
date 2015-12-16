@@ -9,7 +9,7 @@ import hudson.Launcher;
 import hudson.util.ArgumentListBuilder;
 import org.apache.commons.io.output.NullOutputStream;
 import org.jenkinsci.plugins.spoontrigger.SpoonBuild;
-import org.jenkinsci.plugins.spoontrigger.client.OutputStreamCollector;
+import org.jenkinsci.plugins.spoontrigger.commands.OutputStreamCollector;
 
 import java.io.IOException;
 import java.io.OutputStream;

@@ -1,4 +1,4 @@
-package org.jenkinsci.plugins.spoontrigger.client;
+package org.jenkinsci.plugins.spoontrigger.commands.turbo;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
@@ -6,6 +6,8 @@ import hudson.FilePath;
 import hudson.Util;
 import hudson.util.ArgumentListBuilder;
 import lombok.Getter;
+import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
+import org.jenkinsci.plugins.spoontrigger.commands.FilterOutputCommand;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.utils.Patterns;
 
@@ -33,7 +35,7 @@ public final class BuildCommand extends FilterOutputCommand {
     }
 
     @Override
-    public void run(SpoonClient client) throws IllegalStateException {
+    public void run(CommandDriver client) throws IllegalStateException {
         super.run(client);
 
         Collection<String> patterns = findInOutput(OUTPUT_IMAGE_PATTERN);

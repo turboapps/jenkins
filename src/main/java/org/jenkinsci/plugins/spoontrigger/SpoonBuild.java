@@ -9,7 +9,7 @@ import hudson.model.Build;
 import hudson.model.BuildListener;
 import lombok.Getter;
 import lombok.Setter;
-import org.jenkinsci.plugins.spoontrigger.client.ConfigCommand;
+import org.jenkinsci.plugins.spoontrigger.commands.turbo.ConfigCommand;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.utils.LogUtils;
 

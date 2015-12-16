@@ -1,4 +1,4 @@
-package org.jenkinsci.plugins.spoontrigger.client;
+package org.jenkinsci.plugins.spoontrigger.commands;
 
 import hudson.EnvVars;
 import hudson.FilePath;
@@ -17,7 +17,7 @@ import java.nio.charset.Charset;
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.REQUIRE_PRESENT_S;
 
-public final class SpoonClient {
+public final class CommandDriver {
 
     private static final int NO_ERROR = 0;
 
@@ -78,10 +78,10 @@ public final class SpoonClient {
 
     public static class ClientBuilder {
 
-        private final SpoonClient client;
+        private final CommandDriver client;
 
         ClientBuilder() {
-            this.client = new SpoonClient();
+            this.client = new CommandDriver();
         }
 
         public ClientBuilder env(EnvVars environment) {
@@ -114,7 +114,7 @@ public final class SpoonClient {
             return this;
         }
 
-        public SpoonClient build() {
+        public CommandDriver build() {
             checkState(this.client.env != null, REQUIRE_PRESENT_S, "env");
             checkState(this.client.pwd != null, REQUIRE_PRESENT_S, "pwd");
             checkState(this.client.launcher != null, REQUIRE_PRESENT_S, "launcher");

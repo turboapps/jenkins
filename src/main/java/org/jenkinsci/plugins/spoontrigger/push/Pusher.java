@@ -4,8 +4,8 @@ import com.google.common.base.Optional;
 import hudson.model.Result;
 import org.jenkinsci.plugins.spoontrigger.Messages;
 import org.jenkinsci.plugins.spoontrigger.SpoonBuild;
-import org.jenkinsci.plugins.spoontrigger.client.PushCommand;
-import org.jenkinsci.plugins.spoontrigger.client.SpoonClient;
+import org.jenkinsci.plugins.spoontrigger.commands.turbo.PushCommand;
+import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 
 import java.io.IOException;
@@ -15,9 +15,9 @@ import static org.jenkinsci.plugins.spoontrigger.Messages.REQUIRE_PRESENT_S;
 
 public class Pusher {
 
-    private final SpoonClient client;
+    private final CommandDriver client;
 
-    public Pusher(SpoonClient client) {
+    public Pusher(CommandDriver client) {
         this.client = client;
     }
 

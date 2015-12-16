@@ -13,7 +13,11 @@ import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import lombok.Data;
 import lombok.Getter;
-import org.jenkinsci.plugins.spoontrigger.client.*;
+import org.jenkinsci.plugins.spoontrigger.commands.turbo.BuildCommand;
+import org.jenkinsci.plugins.spoontrigger.commands.turbo.ConfigCommand;
+import org.jenkinsci.plugins.spoontrigger.commands.turbo.LoginCommand;
+import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
+import org.jenkinsci.plugins.spoontrigger.commands.turbo.VersionCommand;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.utils.AutoCompletion;
 import org.jenkinsci.plugins.spoontrigger.utils.Credentials;
@@ -139,7 +143,7 @@ public class ScriptBuilder extends Builder {
     public boolean perform(AbstractBuild abstractBuild, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
         try {
             SpoonBuild build = (SpoonBuild) abstractBuild;
-            SpoonClient client = SpoonClient.builder(build).launcher(launcher).listener(listener).ignoreErrorCode(true).build();
+            CommandDriver client = CommandDriver.builder(build).launcher(launcher).listener(listener).ignoreErrorCode(true).build();
 
             checkSpoonPluginIsRunning(client);
 
@@ -185,12 +189,12 @@ public class ScriptBuilder extends Builder {
         this.mountSettings.checkMissing();
     }
 
-    private void checkSpoonPluginIsRunning(SpoonClient client) {
+    private void checkSpoonPluginIsRunning(CommandDriver client) {
         VersionCommand versionCmd = VersionCommand.builder().build();
         versionCmd.run(client);
     }
 
-    private void switchHub(SpoonClient client) {
+    private void switchHub(CommandDriver client) {
         ConfigCommand.CommandBuilder cmdBuilder = ConfigCommand.builder();
         if (Strings.isNullOrEmpty(this.hubUrl)) {
             cmdBuilder.reset(true);
@@ -202,7 +206,7 @@ public class ScriptBuilder extends Builder {
         configCommand.run(client);
     }
 
-    private void login(SpoonClient client, StandardUsernamePasswordCredentials credentials) {
+    private void login(CommandDriver client, StandardUsernamePasswordCredentials credentials) {
         LoginCommand loginCmd = LoginCommand.builder().login(credentials.getUsername()).password(credentials.getPassword()).build();
         loginCmd.run(client);
     }

@@ -1,6 +1,8 @@
-package org.jenkinsci.plugins.spoontrigger.client;
+package org.jenkinsci.plugins.spoontrigger.commands.turbo;
 
 import hudson.util.ArgumentListBuilder;
+import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
+import org.jenkinsci.plugins.spoontrigger.commands.FilterOutputCommand;
 
 import java.util.Collection;
 import java.util.regex.Pattern;
@@ -16,7 +18,7 @@ public class VersionCommand extends FilterOutputCommand {
     }
 
     @Override
-    public void run(SpoonClient client) throws IllegalStateException {
+    public void run(CommandDriver client) throws IllegalStateException {
         super.run(client);
 
         Collection<String> versions = findInOutput(VERSION_PATTERN);
