@@ -1,3 +1,6 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:f="/lib/form">
+    <f:entry title="Vagrant Box" field="vagrantBox">
+        <f:textbox checkUrl="'descriptorByName/SnapshotBuilder/checkVagrantBox?value='+escape(this.value)"/>
+    </f:entry>
 </j:jelly>
