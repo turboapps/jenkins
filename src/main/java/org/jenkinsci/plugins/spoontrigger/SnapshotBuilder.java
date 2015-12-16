@@ -59,8 +59,8 @@ public class SnapshotBuilder extends Builder {
     @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
 
-        private static final String DEFAULT_VAGRANT_BOX = "opentable/win-2012r2-standard-amd64-nocm";
-        private static final String DEFAULT_XSTUDIO_PATH = "xstudio";
+        public static final String DEFAULT_VAGRANT_BOX = "opentable/win-2012r2-standard-amd64-nocm";
+        public static final String DEFAULT_XSTUDIO_PATH = "xstudio";
         private static final Validator<File> SCRIPT_FILE_PATH_FILE_VALIDATOR;
         private static final Validator<String> VAGRANT_DEFAULT_BOX_VALIDATOR;
         private static final Validator<String> VAGRANT_BOX_VALIDATOR;
