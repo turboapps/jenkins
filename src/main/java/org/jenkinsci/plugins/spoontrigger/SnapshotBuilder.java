@@ -5,7 +5,6 @@ import com.google.common.reflect.TypeToken;
 import hudson.Extension;
 import hudson.Launcher;
 import hudson.Util;
-import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
 import hudson.tasks.BuildStepDescriptor;
@@ -13,7 +12,11 @@ import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 import lombok.Getter;
 import net.sf.json.JSONObject;
+import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
+import org.jenkinsci.plugins.spoontrigger.commands.vagrant.DestroyCommand;
+import org.jenkinsci.plugins.spoontrigger.commands.vagrant.UpCommand;
 import org.jenkinsci.plugins.spoontrigger.utils.JsonOption;
+import org.jenkinsci.plugins.spoontrigger.vagrant.VagrantEnvironment;
 import org.jenkinsci.plugins.spoontrigger.validation.*;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
@@ -21,12 +24,14 @@ import org.kohsuke.stapler.StaplerRequest;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Locale;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
+import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
 
-public class SnapshotBuilder extends Builder {
+public class SnapshotBuilder extends BaseBuilder {
 
     private final String xStudioPath;
     private final String xStudioLicensePath;
@@ -40,27 +45,49 @@ public class SnapshotBuilder extends Builder {
     }
 
     @Override
-    public boolean prebuild(AbstractBuild<?, ?> build, BuildListener listener) {
-        checkArgument(build instanceof SpoonBuild, requireInstanceOf("build", SpoonBuild.class));
+    protected void prebuild(SpoonBuild build, BuildListener listener) {
+        checkState(xStudioPath != null, String.format(REQUIRE_NOT_NULL_OR_EMPTY_S, "xStudioPath"));
+        checkState(vagrantBox != null, String.format(REQUIRE_NOT_NULL_OR_EMPTY_S, "vagrantBox"));
+    }
 
+    @Override
+    public boolean perform(SpoonBuild build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
+        VagrantEnvironment environment = createVagrantEnvironment(build);
+        try {
+            CommandDriver commandDriver = CommandDriver.builder(build).launcher(launcher).listener(listener).build();
+            try {
+                new UpCommand().run(commandDriver);
+            } catch (Throwable th) {
+                log(listener, "Vagrant up failed with exception", th);
+            } finally {
+                try {
+                    new DestroyCommand().run(commandDriver);
+                } catch (Throwable th) {
+                    log(listener, "Vagrant destroy failed with exception. The virtual machine may have to be removed from VirtualBox manually.", th);
+                }
+            }
+        } finally {
+            environment.close();
+        }
         return true;
     }
 
-    @Override
-    public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
-        return super.perform(build, launcher, listener);
-    }
-
-    @Override
-    public DescriptorImpl getDescriptor() {
-        return (DescriptorImpl) super.getDescriptor();
+    private VagrantEnvironment createVagrantEnvironment(SpoonBuild build) {
+        Path workspace = Paths.get(build.getWorkspace().getRemote());
+        VagrantEnvironment.EnvironmentBuilder environmentBuilder = VagrantEnvironment.builder(workspace)
+                .box(vagrantBox)
+                .xStudioPath(xStudioPath)
+                .generateInstallScript("/S", false);
+        if (xStudioLicensePath != null) {
+            environmentBuilder.xStudioLicensePath(xStudioLicensePath);
+        }
+        return environmentBuilder.build();
     }
 
     @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
 
         public static final String DEFAULT_VAGRANT_BOX = "opentable/win-2012r2-standard-amd64-nocm";
-        public static final String DEFAULT_XSTUDIO_PATH = "xstudio";
         private static final Validator<File> SCRIPT_FILE_PATH_FILE_VALIDATOR;
         private static final Validator<String> VAGRANT_DEFAULT_BOX_VALIDATOR;
         private static final Validator<String> VAGRANT_BOX_VALIDATOR;
@@ -79,6 +106,7 @@ public class SnapshotBuilder extends Builder {
                     StringValidators.isSingleWord(String.format(REQUIRE_SINGLE_WORD_S, "Parameter")));
         }
 
+        @Getter
         private String xStudioPath;
 
         @Getter
@@ -95,7 +123,7 @@ public class SnapshotBuilder extends Builder {
         @Override
         public boolean configure(StaplerRequest req, JSONObject json) throws FormException {
             JsonOption.ObjectWrapper jsonWrapper = JsonOption.wrap(json);
-            xStudioPath = jsonWrapper.getString("xStudioPath").or(DEFAULT_XSTUDIO_PATH);
+            xStudioPath = jsonWrapper.getString("xStudioPath").orNull();
             xStudioLicensePath = jsonWrapper.getString("xStudioLicensePath").orNull();
             vagrantBox = jsonWrapper.getString("vagrantBox").or(DEFAULT_VAGRANT_BOX);
 
@@ -108,7 +136,10 @@ public class SnapshotBuilder extends Builder {
         public SnapshotBuilder newInstance(StaplerRequest req, JSONObject json)
                 throws FormException {
             JsonOption.ObjectWrapper jsonWrapper = JsonOption.wrap(json);
-            String vagrantBoxToUse = jsonWrapper.getString("vagrantBox").or(getVagrantBox());
+            String vagrantBoxToUse = jsonWrapper.getString("vagrantBox").orNull();
+            if (Strings.isNullOrEmpty(vagrantBoxToUse)) {
+                vagrantBoxToUse = getVagrantBox();
+            }
             return new SnapshotBuilder(getXStudioPath(), getXStudioLicensePath(), vagrantBoxToUse);
         }
 
@@ -117,10 +148,6 @@ public class SnapshotBuilder extends Builder {
         }
 
         public FormValidation doCheckXStudioPath(@QueryParameter String value) {
-            String xStudioPath = Util.fixEmptyAndTrim(value);
-            if (xStudioPath != null && xStudioPath.toLowerCase(Locale.ROOT).equals(DEFAULT_XSTUDIO_PATH)) {
-                return FormValidation.ok();
-            }
             return validateOptionalFilePath(value);
         }
 
@@ -134,13 +161,6 @@ public class SnapshotBuilder extends Builder {
             return Validators.validate(VAGRANT_BOX_VALIDATOR, vagrantBox);
         }
 
-        public String getXStudioPath() {
-            if (Strings.isNullOrEmpty(xStudioPath)) {
-                return DEFAULT_XSTUDIO_PATH;
-            }
-            return xStudioPath;
-        }
-
         public String getVagrantBox() {
             if (Strings.isNullOrEmpty(vagrantBox)) {
                 return DEFAULT_VAGRANT_BOX;
@@ -151,7 +171,7 @@ public class SnapshotBuilder extends Builder {
         private FormValidation validateOptionalFilePath(String value) {
             String filePath = Util.fixEmptyAndTrim(value);
             if (filePath == null) {
-                return FormValidation.ok(IGNORE_PARAMETER);
+                return FormValidation.error(String.format(REQUIRE_NON_EMPTY_STRING_S, "Parameter"));
             }
 
             return Validators.validate(SCRIPT_FILE_PATH_FILE_VALIDATOR, new File(filePath));

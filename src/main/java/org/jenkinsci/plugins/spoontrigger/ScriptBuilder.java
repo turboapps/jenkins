@@ -13,16 +13,15 @@ import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import lombok.Data;
 import lombok.Getter;
+import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.BuildCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.ConfigCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.LoginCommand;
-import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.VersionCommand;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.utils.AutoCompletion;
 import org.jenkinsci.plugins.spoontrigger.utils.Credentials;
 import org.jenkinsci.plugins.spoontrigger.utils.FileResolver;
-import org.jenkinsci.plugins.spoontrigger.utils.TaskListeners;
 import org.jenkinsci.plugins.spoontrigger.validation.*;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -32,14 +31,12 @@ import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
 import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
 
-public class ScriptBuilder extends Builder {
+public class ScriptBuilder extends BaseBuilder {
 
     @Nullable
     @Getter
@@ -87,11 +84,6 @@ public class ScriptBuilder extends Builder {
         this.diagnostic = diagnostic;
     }
 
-    private static IllegalStateException onGetEnvironmentFailed(Exception ex) {
-        String errMsg = String.format(FAILED_RESOLVE_S, "environment variables");
-        return new IllegalStateException(errMsg, ex);
-    }
-
     private static Optional<String> toString(FilePath filePath) {
         try {
             return Optional.of(filePath.getRemote());
@@ -113,65 +105,48 @@ public class ScriptBuilder extends Builder {
     }
 
     @Override
-    public boolean prebuild(AbstractBuild<?, ?> build, BuildListener listener) {
-        checkArgument(build instanceof SpoonBuild, requireInstanceOf("build", SpoonBuild.class));
+    public void prebuild(SpoonBuild build, BuildListener listener) {
+        checkState(build.getEnv().isPresent(), "Env is not defined");
 
-        try {
-            SpoonBuild spoonBuild = (SpoonBuild) build;
-            Optional<StandardUsernamePasswordCredentials> credentials = this.getCredentials();
-            if (credentials.isPresent()) {
-                spoonBuild.setCredentials(credentials.get());
-            }
-            spoonBuild.setAllowOverwrite(this.overwrite);
-
-            EnvVars env = this.getEnvironment(build, listener);
-            spoonBuild.setEnv(env);
-
-            FilePath scriptPath = this.resolveScriptFilePath(build, env, listener);
-            spoonBuild.setScript(scriptPath);
-
-            this.checkMountSettings();
-
-            return true;
-        } catch (IllegalStateException ex) {
-            TaskListeners.logFatalError(listener, ex);
-            return false;
+        Optional<StandardUsernamePasswordCredentials> credentials = this.getCredentials();
+        if (credentials.isPresent()) {
+            build.setCredentials(credentials.get());
         }
+        build.setAllowOverwrite(this.overwrite);
+
+        FilePath scriptPath = this.resolveScriptFilePath(build, build.getEnv().get(), listener);
+        build.setScript(scriptPath);
+
+        this.checkMountSettings();
     }
 
     @Override
-    public boolean perform(AbstractBuild abstractBuild, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
-        try {
-            SpoonBuild build = (SpoonBuild) abstractBuild;
-            CommandDriver client = CommandDriver.builder(build).launcher(launcher).listener(listener).ignoreErrorCode(true).build();
+    public boolean perform(SpoonBuild build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
+        CommandDriver client = CommandDriver.scriptBuilder(build).launcher(launcher).listener(listener).ignoreErrorCode(true).build();
 
-            checkSpoonPluginIsRunning(client);
+        checkSpoonPluginIsRunning(client);
 
-            switchHub(client);
+        switchHub(client);
 
-            Optional<StandardUsernamePasswordCredentials> credentials = build.getCredentials();
-            if (credentials.isPresent()) {
-                login(client, credentials.get());
-            }
-
-            BuildCommand command = createBuildCommand(build.getScript().get());
-            command.run(client);
-
-            Optional<Image> outputImage = command.getOutputImage();
-            if (outputImage.isPresent()) {
-                build.setOutputImage(outputImage.get());
-                return true;
-            }
-
-            log(listener, "Failed to find the output image in the build process output");
-            if (shouldAbort(build, command)) {
-                build.setResult(Result.ABORTED);
-            }
-            return false;
-        } catch (IllegalStateException ex) {
-            TaskListeners.logFatalError(listener, ex);
-            return false;
+        Optional<StandardUsernamePasswordCredentials> credentials = build.getCredentials();
+        if (credentials.isPresent()) {
+            login(client, credentials.get());
         }
+
+        BuildCommand command = createBuildCommand(build.getScript().get());
+        command.run(client);
+
+        Optional<Image> outputImage = command.getOutputImage();
+        if (outputImage.isPresent()) {
+            build.setOutputImage(outputImage.get());
+            return true;
+        }
+
+        log(listener, "Failed to find the output image in the build process output");
+        if (shouldAbort(build, command)) {
+            build.setResult(Result.ABORTED);
+        }
+        return false;
     }
 
     private boolean shouldAbort(SpoonBuild build, BuildCommand command) {
@@ -246,19 +221,6 @@ public class ScriptBuilder extends Builder {
         checkState(credentials.isPresent(), "Cannot find any credentials with id (%s)", this.credentialsId);
 
         return credentials;
-    }
-
-    private EnvVars getEnvironment(AbstractBuild<?, ?> build, BuildListener listener) throws IllegalStateException {
-        try {
-            EnvVars env = build.getEnvironment(listener);
-            Map<String, String> buildVariables = build.getBuildVariables();
-            env.overrideAll(buildVariables);
-            return env;
-        } catch (IOException ex) {
-            throw onGetEnvironmentFailed(ex);
-        } catch (InterruptedException ex) {
-            throw onGetEnvironmentFailed(ex);
-        }
     }
 
     private FilePath resolveScriptFilePath(AbstractBuild build, EnvVars environment, BuildListener listener) throws IllegalStateException {

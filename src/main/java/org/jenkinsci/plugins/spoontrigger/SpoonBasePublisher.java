@@ -60,8 +60,6 @@ abstract class SpoonBasePublisher extends Publisher {
             SpoonBuild build = (SpoonBuild) abstractBuild;
             this.beforePublish(build, listener);
             this.publish(build, launcher, listener);
-
-
             return true;
         } catch (IllegalStateException ex) {
             TaskListeners.logFatalError(listener, ex);
@@ -71,6 +69,6 @@ abstract class SpoonBasePublisher extends Publisher {
 
     CommandDriver createClient(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) {
         SpoonBuild build = (SpoonBuild) abstractBuild;
-        return CommandDriver.builder(build).launcher(launcher).listener(listener).build();
+        return CommandDriver.scriptBuilder(build).launcher(launcher).listener(listener).build();
     }
 }

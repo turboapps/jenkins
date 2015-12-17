@@ -5,40 +5,39 @@ import com.google.common.reflect.TypeToken;
 import hudson.Extension;
 import hudson.Launcher;
 import hudson.Util;
-import hudson.model.*;
+import hudson.model.AbstractProject;
+import hudson.model.BuildListener;
+import hudson.model.Result;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 import lombok.Data;
 import lombok.Getter;
 import org.jenkinsci.plugins.spoontrigger.commands.BaseCommand;
+import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.ModelCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.PushModelCommand;
-import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.schtasks.ScheduledTasksApi;
-import org.jenkinsci.plugins.spoontrigger.utils.TaskListeners;
 import org.jenkinsci.plugins.spoontrigger.validation.*;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
 import javax.annotation.Nullable;
-import java.io.IOException;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Locale;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.IGNORE_PARAMETER;
 import static org.jenkinsci.plugins.spoontrigger.Messages.REQUIRE_OUTPUT_IMAGE;
-import static org.jenkinsci.plugins.spoontrigger.Messages.requireInstanceOf;
 import static org.jenkinsci.plugins.spoontrigger.utils.FileUtils.deleteDirectoryTree;
 import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
 
-public class ModelBuilder extends Builder {
+public class ModelBuilder extends BaseBuilder {
 
     private static final String TRANSCRIPT_DIR = "transcripts";
     private static final String MODEL_DIR = "model";
@@ -53,40 +52,26 @@ public class ModelBuilder extends Builder {
     }
 
     @Override
-    public boolean prebuild(AbstractBuild<?, ?> build, BuildListener listener) {
-        checkArgument(build instanceof SpoonBuild, requireInstanceOf("build", SpoonBuild.class));
+    public boolean perform(SpoonBuild build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
+        Image outputImage = build.getOutputImage().orNull();
+        checkState(outputImage != null, REQUIRE_OUTPUT_IMAGE);
 
-        return true;
-    }
-
-    @Override
-    public boolean perform(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
+        Path tempDir = createTempDir(build);
+        Path transcriptDir = Paths.get(tempDir.toString(), TRANSCRIPT_DIR).toAbsolutePath();
+        Path modelDir = Paths.get(tempDir.toString(), MODEL_DIR).toAbsolutePath();
         try {
-            SpoonBuild build = (SpoonBuild) abstractBuild;
-            Image outputImage = build.getOutputImage().orNull();
-            checkState(outputImage != null, REQUIRE_OUTPUT_IMAGE);
-
-            Path tempDir = createTempDir(build);
-            Path transcriptDir = Paths.get(tempDir.toString(), TRANSCRIPT_DIR).toAbsolutePath();
-            Path modelDir = Paths.get(tempDir.toString(), MODEL_DIR).toAbsolutePath();
-            try {
-                profile(outputImage, transcriptDir, build, launcher, listener);
-                CommandDriver client = CommandDriver.builder(build).launcher(launcher).listener(listener).build();
-                model(client, outputImage, transcriptDir, modelDir);
-                if (shouldPushModel(modelDir, listener)) {
-                    pushModel(client, build, outputImage, modelDir);
-                } else {
-                    build.setResult(Result.UNSTABLE);
-                }
-            } finally {
-                deleteDirectoryTree(tempDir);
+            profile(outputImage, transcriptDir, build, launcher, listener);
+            CommandDriver client = CommandDriver.scriptBuilder(build).launcher(launcher).listener(listener).build();
+            model(client, outputImage, transcriptDir, modelDir);
+            if (shouldPushModel(modelDir, listener)) {
+                pushModel(client, build, outputImage, modelDir);
+            } else {
+                build.setResult(Result.UNSTABLE);
             }
-
-            return true;
-        } catch (IllegalStateException ex) {
-            TaskListeners.logFatalError(listener, ex);
-            return false;
+        } finally {
+            deleteDirectoryTree(tempDir);
         }
+        return true;
     }
 
     private void pushModel(CommandDriver client, SpoonBuild build, Image localImage, Path modelDir) {

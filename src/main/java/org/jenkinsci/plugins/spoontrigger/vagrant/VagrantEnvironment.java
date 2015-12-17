@@ -2,6 +2,7 @@ package org.jenkinsci.plugins.spoontrigger.vagrant;
 
 import com.google.common.base.Optional;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.*;
@@ -9,9 +10,8 @@ import java.util.ArrayList;
 
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.utils.FileUtils.quietDeleteDirectoryTreeIfExists;
-import static org.jenkinsci.plugins.spoontrigger.utils.FileUtils.quietDeleteFileIfExist;
 
-public class VagrantEnvironment {
+public class VagrantEnvironment implements Closeable {
     public static final String TOOLS_DIRECTORY = "tools";
     public static final String INSTALL_DIRECTORY = "install";
     public static final String OUTPUT_DIRECTORY = "output";
@@ -27,17 +27,17 @@ public class VagrantEnvironment {
         this.workingDir = workingDir;
     }
 
-    public void cleanup() {
+    public static EnvironmentBuilder builder(Path workingDir) {
+        return new EnvironmentBuilder(workingDir);
+    }
+
+    @Override
+    public void close() {
         String workingDirToUse = workingDir.toString();
         quietDeleteDirectoryTreeIfExists(Paths.get(workingDirToUse, TOOLS_DIRECTORY));
         quietDeleteDirectoryTreeIfExists(Paths.get(workingDirToUse, INSTALL_DIRECTORY));
         quietDeleteDirectoryTreeIfExists(Paths.get(workingDirToUse, OUTPUT_DIRECTORY));
         quietDeleteDirectoryTreeIfExists(Paths.get(workingDirToUse, ".vagrant"));
-        quietDeleteFileIfExist(Paths.get(workingDirToUse, VAGRANT_FILE));
-    }
-
-    public static EnvironmentBuilder builder(Path workingDir) {
-        return new EnvironmentBuilder(workingDir);
     }
 
     public static class EnvironmentBuilder {

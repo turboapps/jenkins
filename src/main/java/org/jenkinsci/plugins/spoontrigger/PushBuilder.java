@@ -4,7 +4,6 @@ import com.google.common.reflect.TypeToken;
 import hudson.Extension;
 import hudson.Launcher;
 import hudson.Util;
-import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
 import hudson.model.Result;
@@ -20,7 +19,6 @@ import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.push.PushConfig;
 import org.jenkinsci.plugins.spoontrigger.push.Pusher;
 import org.jenkinsci.plugins.spoontrigger.push.RemoteImageNameStrategy;
-import org.jenkinsci.plugins.spoontrigger.utils.TaskListeners;
 import org.jenkinsci.plugins.spoontrigger.validation.Level;
 import org.jenkinsci.plugins.spoontrigger.validation.StringValidators;
 import org.jenkinsci.plugins.spoontrigger.validation.Validator;
@@ -32,12 +30,11 @@ import org.kohsuke.stapler.StaplerRequest;
 import javax.annotation.Nullable;
 import java.io.IOException;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
 import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
 
-public class PushBuilder extends Builder {
+public class PushBuilder extends BaseBuilder {
     @Nullable
     @Getter
     private final String remoteImageName;
@@ -55,8 +52,6 @@ public class PushBuilder extends Builder {
     @Getter
     private final boolean overwriteOrganization;
 
-    private transient PushConfig pushConfig;
-
     @DataBoundConstructor
     public PushBuilder(@Nullable RemoteImageNameStrategy remoteImageStrategy,
                        @Nullable String organization, boolean overwriteOrganization,
@@ -70,39 +65,26 @@ public class PushBuilder extends Builder {
     }
 
     @Override
-    public boolean prebuild(AbstractBuild<?, ?> abstractBuild, BuildListener listener) {
-        checkArgument(abstractBuild instanceof SpoonBuild, requireInstanceOf("build", SpoonBuild.class));
+    public boolean perform(SpoonBuild build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
+        Image localImage = build.getOutputImage().orNull();
+        checkState(localImage != null, REQUIRE_OUTPUT_IMAGE);
 
-        return true;
-    }
+        PushConfig pushConfig = cratePushConfig(localImage);
 
-    @Override
-    public boolean perform(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
-        try {
-            SpoonBuild build = (SpoonBuild) abstractBuild;
-            Image localImage = build.getOutputImage().orNull();
-            checkState(localImage != null, REQUIRE_OUTPUT_IMAGE);
-
-            PushConfig pushConfig = cratePushConfig(localImage);
-
-            Image remoteImage = remoteImageStrategy.getRemoteImage(pushConfig, build);
-            if (shouldAbort(remoteImage, build, listener)) {
-                build.setResult(Result.ABORTED);
-                return false;
-            }
-
-            if (!localImage.equals(remoteImage)) {
-                build.setRemoteImage(remoteImage);
-            }
-
-            CommandDriver client = CommandDriver.builder(build).launcher(launcher).listener(listener).build();
-            Pusher pusher = new Pusher(client);
-            pusher.push(build);
-            return true;
-        } catch (IllegalStateException ex) {
-            TaskListeners.logFatalError(listener, ex);
+        Image remoteImage = remoteImageStrategy.getRemoteImage(pushConfig, build);
+        if (shouldAbort(remoteImage, build, listener)) {
+            build.setResult(Result.ABORTED);
             return false;
         }
+
+        if (!localImage.equals(remoteImage)) {
+            build.setRemoteImage(remoteImage);
+        }
+
+        CommandDriver client = CommandDriver.scriptBuilder(build).launcher(launcher).listener(listener).build();
+        Pusher pusher = new Pusher(client);
+        pusher.push(build);
+        return true;
     }
 
     private boolean shouldAbort(Image remoteImage, SpoonBuild build, BuildListener listener) {
