@@ -3,6 +3,7 @@ package org.jenkinsci.plugins.spoontrigger;
 import com.google.common.base.Strings;
 import com.google.common.reflect.TypeToken;
 import hudson.Extension;
+import hudson.FilePath;
 import hudson.Launcher;
 import hudson.Util;
 import hudson.model.AbstractProject;
@@ -14,7 +15,8 @@ import lombok.Getter;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.commands.vagrant.DestroyCommand;
-import org.jenkinsci.plugins.spoontrigger.commands.vagrant.UpCommand;
+import org.jenkinsci.plugins.spoontrigger.scheduledtasks.ScheduledTasksApi;
+import org.jenkinsci.plugins.spoontrigger.utils.FileUtils;
 import org.jenkinsci.plugins.spoontrigger.utils.JsonOption;
 import org.jenkinsci.plugins.spoontrigger.vagrant.VagrantEnvironment;
 import org.jenkinsci.plugins.spoontrigger.validation.*;
@@ -24,14 +26,17 @@ import org.kohsuke.stapler.StaplerRequest;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
 import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
 
 public class SnapshotBuilder extends BaseBuilder {
+
+    private static final Pattern INVALID_CHARACTERS_PATTERN = Pattern.compile("\\W+");
 
     private final String xStudioPath;
     private final String xStudioLicensePath;
@@ -52,36 +57,43 @@ public class SnapshotBuilder extends BaseBuilder {
 
     @Override
     public boolean perform(SpoonBuild build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
-        VagrantEnvironment environment = createVagrantEnvironment(build);
+        Path vagrantDir = createVagrantEnvironment(build);
         try {
-            CommandDriver commandDriver = CommandDriver.builder(build).launcher(launcher).listener(listener).build();
+            ScheduledTasksApi tasks = new ScheduledTasksApi(build.getEnv().get(), new FilePath(vagrantDir.toFile()), build.getCharset(), launcher, listener);
+            tasks.run(build.getProject().getName(), "cmd", "/c vagrant up");
+            destroyVirtualMachine(build, launcher, listener);
+            return true;
+        } catch (Throwable buildError) {
             try {
-                new UpCommand().run(commandDriver);
-            } catch (Throwable th) {
-                log(listener, "Vagrant up failed with exception", th);
-            } finally {
-                try {
-                    new DestroyCommand().run(commandDriver);
-                } catch (Throwable th) {
-                    log(listener, "Vagrant destroy failed with exception. The virtual machine may have to be removed from VirtualBox manually.", th);
-                }
+                destroyVirtualMachine(build, launcher, listener);
+            } catch (Throwable destroyError) {
+                log(listener, "`vagrant destroy` failed with exception. The virtual machine may have to be removed from VirtualBox manually.", destroyError);
             }
+            throw new IllegalStateException("`vagrant up` failed with exception", buildError);
         } finally {
-            environment.close();
+            FileUtils.deleteDirectoryTree(vagrantDir);
         }
-        return true;
     }
 
-    private VagrantEnvironment createVagrantEnvironment(SpoonBuild build) {
-        Path workspace = Paths.get(build.getWorkspace().getRemote());
-        VagrantEnvironment.EnvironmentBuilder environmentBuilder = VagrantEnvironment.builder(workspace)
+    private Path createVagrantEnvironment(SpoonBuild build) throws IOException {
+        String projectNameToUse = INVALID_CHARACTERS_PATTERN.matcher(build.getProject().getName()).replaceAll("");
+        Path workingDir = Files.createTempDirectory("jenkins-" + projectNameToUse + "-build-");
+
+        VagrantEnvironment.EnvironmentBuilder environmentBuilder = VagrantEnvironment.builder(workingDir)
                 .box(vagrantBox)
                 .xStudioPath(xStudioPath)
                 .generateInstallScript("/S", false);
         if (xStudioLicensePath != null) {
             environmentBuilder.xStudioLicensePath(xStudioLicensePath);
         }
-        return environmentBuilder.build();
+        environmentBuilder.build();
+
+        return workingDir;
+    }
+
+    private void destroyVirtualMachine(SpoonBuild build, Launcher launcher, BuildListener listener) {
+        CommandDriver commandDriver = CommandDriver.builder(build).launcher(launcher).listener(listener).build();
+        new DestroyCommand().run(commandDriver);
     }
 
     @Extension

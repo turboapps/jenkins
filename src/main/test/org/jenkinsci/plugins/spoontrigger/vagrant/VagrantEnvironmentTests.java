@@ -38,16 +38,17 @@ public class VagrantEnvironmentTests {
         // then
         String workingDirPath = workingDir.getRoot().getPath();
         Assert.assertTrue(Files.exists(Paths.get(workingDirPath, INSTALL_DIRECTORY, INSTALL_SCRIPT_FILE)));
-        Assert.assertTrue(Files.exists(Paths.get(workingDirPath, VAGRANT_FILE)));
+
         Assert.assertTrue(Files.exists(Paths.get(workingDirPath, TOOLS_DIRECTORY, XSTUDIO_EXE_FILE)));
         Assert.assertTrue(Files.exists(Paths.get(workingDirPath, TOOLS_DIRECTORY, XSTUDIO_LICENSE_FILE)));
 
         // when
-        environment.cleanup();
+        environment.close();
 
+        Assert.assertTrue(Files.exists(Paths.get(workingDirPath, VAGRANT_FILE)));
         String[] workspaceFiles = workingDir.getRoot().list();
         Assert.assertNotNull(workspaceFiles);
-        Assert.assertTrue(workspaceFiles.length == 0);
+        Assert.assertTrue(workspaceFiles.length == 1); // contains only Vagrantfile
     }
 
     private String getTempPath(String filename) {

@@ -18,7 +18,7 @@ import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.ModelCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.PushModelCommand;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
-import org.jenkinsci.plugins.spoontrigger.schtasks.ScheduledTasksApi;
+import org.jenkinsci.plugins.spoontrigger.scheduledtasks.ScheduledTasksApi;
 import org.jenkinsci.plugins.spoontrigger.validation.*;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
@@ -56,7 +56,7 @@ public class ModelBuilder extends BaseBuilder {
         Image outputImage = build.getOutputImage().orNull();
         checkState(outputImage != null, REQUIRE_OUTPUT_IMAGE);
 
-        Path tempDir = createTempDir(build);
+        Path tempDir = Files.createTempDirectory(Paths.get(build.getWorkspace().getRemote()), "model-build-");
         Path transcriptDir = Paths.get(tempDir.toString(), TRANSCRIPT_DIR).toAbsolutePath();
         Path modelDir = Paths.get(tempDir.toString(), MODEL_DIR).toAbsolutePath();
         try {
@@ -128,7 +128,7 @@ public class ModelBuilder extends BaseBuilder {
      * Profiling is implemented using scheduled tasks, because Jenkins build agent is running as a service without access to user interface.
      */
     private void profile(Image image, Path transcriptDir, SpoonBuild build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
-        ScheduledTasksApi taskApi = ScheduledTasksApi.create(build, launcher);
+        ScheduledTasksApi taskApi = new ScheduledTasksApi(build.getEnv().get(), build.getWorkspace(), build.getCharset(), launcher, listener);
 
         String taskName = getProjectId(build);
         if (taskApi.isDefined(taskName)) {
@@ -172,15 +172,6 @@ public class ModelBuilder extends BaseBuilder {
                 log(listener, errMsg);
             }
         }
-    }
-
-    private Path createTempDir(SpoonBuild build) throws IOException {
-        final String prefix = "model-build-";
-
-        String workspaceLocation = build.getWorkspace().getRemote();
-        Path tempDir = (workspaceLocation == null) ? Files.createTempDirectory(prefix)
-                : Files.createTempDirectory(Paths.get(workspaceLocation), prefix);
-        return tempDir.toAbsolutePath();
     }
 
     private String getProjectId(SpoonBuild build) {
