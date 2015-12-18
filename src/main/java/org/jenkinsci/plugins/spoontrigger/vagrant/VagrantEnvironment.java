@@ -102,7 +102,7 @@ public class VagrantEnvironment implements Closeable {
 
             setupToolsDirectory();
             String installScriptName = setupInstallDirectory();
-            generateVagrantFile(box.get(), installScriptName);
+            setupWorkingDirectory(box.get(), installScriptName);
 
             return new VagrantEnvironment(workingDir);
         }
@@ -168,7 +168,7 @@ public class VagrantEnvironment implements Closeable {
             throw new IllegalStateException("Failed to create installer script");
         }
 
-        private void generateVagrantFile(String vagrantBox, String installScriptName) {
+        private void setupWorkingDirectory(String vagrantBox, String installScriptName) {
             VagrantFileTemplate vagrantFileTemplate = new VagrantFileTemplate(installScriptName, vagrantBox);
             try {
                 vagrantFileTemplate.save(Paths.get(workingDir.toString(), VAGRANT_FILE));

@@ -1,6 +1,8 @@
 package org.jenkinsci.plugins.spoontrigger;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Strings;
+import com.google.common.io.Closeables;
 import com.google.common.reflect.TypeToken;
 import hudson.*;
 import hudson.model.AbstractProject;
@@ -13,6 +15,7 @@ import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.ImportCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.vagrant.DestroyCommand;
+import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.scheduledtasks.ScheduledTasksApi;
 import org.jenkinsci.plugins.spoontrigger.utils.FileUtils;
 import org.jenkinsci.plugins.spoontrigger.utils.JsonOption;
@@ -22,8 +25,10 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -36,11 +41,14 @@ import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
 
 public class SnapshotBuilder extends BaseBuilder {
 
+    private static final String IMAGE_NAME_FILE = "image.txt";
     private static final Pattern INVALID_CHARACTERS_PATTERN = Pattern.compile("\\W+");
 
     private final String xStudioPath;
     private final String xStudioLicensePath;
     private final String vagrantBox;
+
+    private Optional<Image> importAsImage = Optional.absent();
 
     @DataBoundConstructor
     public SnapshotBuilder(String xStudioPath, String xStudioLicensePath, String vagrantBox) {
@@ -71,13 +79,26 @@ public class SnapshotBuilder extends BaseBuilder {
         String projectNameToUse = INVALID_CHARACTERS_PATTERN.matcher(build.getProject().getName()).replaceAll("");
         Path workingDir = Files.createTempDirectory("jenkins-" + projectNameToUse + "-build-");
 
+        String buildWorkspace = Paths.get(build.getWorkspace().getRemote()).toString();
         VagrantEnvironment.EnvironmentBuilder environmentBuilder = VagrantEnvironment.builder(workingDir)
                 .box(vagrantBox)
                 .xStudioPath(xStudioPath)
-                .installerPath(Paths.get(build.getWorkspace().getRemote(), VagrantEnvironment.INSTALL_DIRECTORY, VagrantEnvironment.INSTALLER_EXE_FILE).toString())
+                .installerPath(Paths.get(buildWorkspace, VagrantEnvironment.INSTALL_DIRECTORY, VagrantEnvironment.INSTALLER_EXE_FILE).toString())
                 .generateInstallScript("/S", false);
         if (xStudioLicensePath != null) {
             environmentBuilder.xStudioLicensePath(xStudioLicensePath);
+        }
+
+        Path imageFilePath = Paths.get(buildWorkspace, IMAGE_NAME_FILE);
+        if (imageFilePath.toFile().exists()) {
+            BufferedReader reader = Files.newBufferedReader(imageFilePath, Charset.defaultCharset());
+            try {
+                String imageName = reader.readLine();
+                importAsImage = Optional.of(Image.parse(imageName));
+            } finally {
+                final boolean swallowException = true;
+                Closeables.close(reader, swallowException);
+            }
         }
         return environmentBuilder.build();
     }
@@ -123,12 +144,16 @@ public class SnapshotBuilder extends BaseBuilder {
         }
 
         private void importImage() {
-            Path imagePath = vagrantEnv.getImagePath();
-            ImportCommand command = ImportCommand.builder()
+            ImportCommand.CommandBuilder commandBuilder = ImportCommand.builder()
                     .type("svm")
-                    .path(imagePath.toString())
-                    .overwrite(true)
-                    .build();
+                    .path(vagrantEnv.getImagePath().toString())
+                    .overwrite(true);
+
+            if (importAsImage.isPresent()) {
+                commandBuilder.name(importAsImage.get().printIdentifier());
+            }
+
+            ImportCommand command = commandBuilder.build();
             command.run(commandDriver);
         }
 
