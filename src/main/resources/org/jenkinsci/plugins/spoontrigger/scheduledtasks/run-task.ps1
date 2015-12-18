@@ -15,17 +15,22 @@ function Log-Status ($log) {
 	Write-Output "# PowerShell => $log"
 }
 
+function Is-ScheduledTaskExist ($taskName) {
+    return Get-ScheduledTask | Where-Object {$_.TaskName -like $taskName}
+}
+
 function Is-ScheduledTaskRunning ($taskName) {
 	return Get-ScheduledTask | Where-Object {$_.TaskName -like $taskName -and $_.State -like "Running"}
 }
 
+$exitCode = 0
 Try
 {
-    $taskExists = Get-ScheduledTask | Where-Object {$_.TaskName -like $TaskName}
+    $taskExists = Is-ScheduledTaskExist $TaskName
     if($taskExists)
     {
 	    Log-Status "Scheduled task '$TaskName' was left by previous job. Removing it now."
-	    Unregister-ScheduledTask $TaskName -Confirm:$False
+        Unregister-ScheduledTask $TaskName -Confirm:$False
     }
 
     $workingDirectoryToUse = $WorkingDirectory
@@ -75,16 +80,23 @@ Try
     }
 
     Log-Status "Scheduled task '$TaskName' finished"
-    Log-Status "Removing scheduled task '$TaskName'"
 
-    #Unregister-ScheduledTask $TaskName -Confirm:$False
 
-    #Remove-Item $logFilePath
-
-    Exit 0
+    Remove-Item $logFilePath
 }
 Catch
 {
     Write-Error $_.Exception.Message
-    Exit -1
+    $exitCode = 1
 }
+Finally
+{
+    $taskExists = Is-ScheduledTaskExist $TaskName
+    if($taskExists)
+    {
+	    Log-Status "Removing scheduled task '$TaskName'"
+        Unregister-ScheduledTask $TaskName -Confirm:$False
+    }
+}
+
+Exit $exitCode

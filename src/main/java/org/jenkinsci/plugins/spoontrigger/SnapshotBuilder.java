@@ -14,7 +14,6 @@ import lombok.Getter;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.ImportCommand;
-import org.jenkinsci.plugins.spoontrigger.commands.vagrant.DestroyCommand;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.scheduledtasks.ScheduledTasksApi;
 import org.jenkinsci.plugins.spoontrigger.utils.FileUtils;
@@ -106,8 +105,8 @@ public class SnapshotBuilder extends BaseBuilder {
     private class SnapshotTaker {
         private final SpoonBuild build;
         private final VagrantEnvironment vagrantEnv;
-        private final Launcher launcher;
         private final BuildListener listener;
+        private final ScheduledTasksApi scheduledTasksApi;
         private final CommandDriver commandDriver;
 
         public SnapshotTaker(SpoonBuild build, VagrantEnvironment vagrantEnv, Launcher launcher, BuildListener listener) {
@@ -115,15 +114,18 @@ public class SnapshotBuilder extends BaseBuilder {
 
             this.build = build;
             this.vagrantEnv = vagrantEnv;
-            this.launcher = launcher;
             this.listener = listener;
+
+            EnvVars env = this.build.getEnv().get();
+            FilePath vagrantDir = new FilePath(vagrantEnv.getWorkingDir().toFile());
             this.commandDriver = CommandDriver.builder()
                     .charset(this.build.getCharset())
-                    .env(this.build.getEnv().get())
-                    .pwd(getVagrantDir())
-                    .launcher(this.launcher)
+                    .env(env)
+                    .pwd(vagrantDir)
+                    .launcher(launcher)
                     .listener(this.listener)
                     .build();
+            this.scheduledTasksApi = new ScheduledTasksApi(env, vagrantDir, build.getCharset(), launcher, this.listener);
         }
 
         public void takeSnapshot() {
@@ -139,8 +141,7 @@ public class SnapshotBuilder extends BaseBuilder {
         }
 
         private void provisionVm() throws IOException, InterruptedException {
-            ScheduledTasksApi tasks = new ScheduledTasksApi(build.getEnv().get(), getVagrantDir(), build.getCharset(), launcher, listener);
-            tasks.run(build.getProject().getName(), "cmd", "/c vagrant up");
+            scheduledTasksApi.run(build.getProject().getName() + " - vagrant up", "cmd", "/c vagrant up");
         }
 
         private void importImage() {
@@ -159,7 +160,7 @@ public class SnapshotBuilder extends BaseBuilder {
 
         private void destroyVm(boolean swallowException) {
             try {
-                new DestroyCommand().run(commandDriver);
+                scheduledTasksApi.run(build.getProject().getName() + " - vagrant destroy", "cmd", "/c vagrant destroy --force");
             } catch (Throwable th) {
                 final String errorMsg = "`vagrant destroy` failed with exception. The virtual machine may have to be removed from VirtualBox manually.";
                 if (swallowException) {
@@ -168,10 +169,6 @@ public class SnapshotBuilder extends BaseBuilder {
                     throw new IllegalStateException(errorMsg, th);
                 }
             }
-        }
-
-        private FilePath getVagrantDir() {
-            return new FilePath(vagrantEnv.getWorkingDir().toFile());
         }
     }
 
