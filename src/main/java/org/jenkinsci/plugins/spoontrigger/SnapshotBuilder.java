@@ -2,10 +2,7 @@ package org.jenkinsci.plugins.spoontrigger;
 
 import com.google.common.base.Strings;
 import com.google.common.reflect.TypeToken;
-import hudson.Extension;
-import hudson.FilePath;
-import hudson.Launcher;
-import hudson.Util;
+import hudson.*;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
 import hudson.tasks.BuildStepDescriptor;
@@ -14,6 +11,7 @@ import hudson.util.FormValidation;
 import lombok.Getter;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
+import org.jenkinsci.plugins.spoontrigger.commands.turbo.ImportCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.vagrant.DestroyCommand;
 import org.jenkinsci.plugins.spoontrigger.scheduledtasks.ScheduledTasksApi;
 import org.jenkinsci.plugins.spoontrigger.utils.FileUtils;
@@ -31,6 +29,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
 import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
@@ -58,25 +57,17 @@ public class SnapshotBuilder extends BaseBuilder {
 
     @Override
     public boolean perform(SpoonBuild build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
-        Path vagrantDir = createVagrantEnvironment(build);
+        VagrantEnvironment vagrantEnv = createVagrantEnvironment(build);
         try {
-            ScheduledTasksApi tasks = new ScheduledTasksApi(build.getEnv().get(), new FilePath(vagrantDir.toFile()), build.getCharset(), launcher, listener);
-            tasks.run(build.getProject().getName(), "cmd", "/c vagrant up");
-            destroyVirtualMachine(vagrantDir, build, launcher, listener);
+            SnapshotTaker snapshotTaker = new SnapshotTaker(build, vagrantEnv, launcher, listener);
+            snapshotTaker.takeSnapshot();
             return true;
-        } catch (Throwable buildError) {
-            try {
-                destroyVirtualMachine(vagrantDir, build, launcher, listener);
-            } catch (Throwable destroyError) {
-                log(listener, "`vagrant destroy` failed with exception. The virtual machine may have to be removed from VirtualBox manually.", destroyError);
-            }
-            throw new IllegalStateException("`vagrant up` failed with exception", buildError);
         } finally {
-            FileUtils.deleteDirectoryTree(vagrantDir);
+            FileUtils.deleteDirectoryTree(vagrantEnv.getWorkingDir());
         }
     }
 
-    private Path createVagrantEnvironment(SpoonBuild build) throws IOException {
+    private VagrantEnvironment createVagrantEnvironment(SpoonBuild build) throws IOException {
         String projectNameToUse = INVALID_CHARACTERS_PATTERN.matcher(build.getProject().getName()).replaceAll("");
         Path workingDir = Files.createTempDirectory("jenkins-" + projectNameToUse + "-build-");
 
@@ -88,20 +79,75 @@ public class SnapshotBuilder extends BaseBuilder {
         if (xStudioLicensePath != null) {
             environmentBuilder.xStudioLicensePath(xStudioLicensePath);
         }
-        environmentBuilder.build();
-
-        return workingDir;
+        return environmentBuilder.build();
     }
 
-    private void destroyVirtualMachine(Path vagrantDir, SpoonBuild build, Launcher launcher, BuildListener listener) {
-        CommandDriver commandDriver = CommandDriver.builder()
-                .charset(build.getCharset())
-                .env(build.getEnv().get())
-                .pwd(new FilePath(vagrantDir.toFile()))
-                .launcher(launcher)
-                .listener(listener)
-                .build();
-        new DestroyCommand().run(commandDriver);
+    private class SnapshotTaker {
+        private final SpoonBuild build;
+        private final VagrantEnvironment vagrantEnv;
+        private final Launcher launcher;
+        private final BuildListener listener;
+        private final CommandDriver commandDriver;
+
+        public SnapshotTaker(SpoonBuild build, VagrantEnvironment vagrantEnv, Launcher launcher, BuildListener listener) {
+            checkArgument(build.getEnv().isPresent(), "build");
+
+            this.build = build;
+            this.vagrantEnv = vagrantEnv;
+            this.launcher = launcher;
+            this.listener = listener;
+            this.commandDriver = CommandDriver.builder()
+                    .charset(this.build.getCharset())
+                    .env(this.build.getEnv().get())
+                    .pwd(getVagrantDir())
+                    .launcher(this.launcher)
+                    .listener(this.listener)
+                    .build();
+        }
+
+        public void takeSnapshot() {
+            try {
+                provisionVm();
+                importImage();
+            } catch (Throwable buildError) {
+                // destroy VM and do not swallow the initial build error
+                destroyVm(true);
+                throw new IllegalStateException("`vagrant up` failed with exception", buildError);
+            }
+            destroyVm(false);
+        }
+
+        private void provisionVm() throws IOException, InterruptedException {
+            ScheduledTasksApi tasks = new ScheduledTasksApi(build.getEnv().get(), getVagrantDir(), build.getCharset(), launcher, listener);
+            tasks.run(build.getProject().getName(), "cmd", "/c vagrant up");
+        }
+
+        private void importImage() {
+            Path imagePath = vagrantEnv.getImagePath();
+            ImportCommand command = ImportCommand.builder()
+                    .type("svm")
+                    .path(imagePath.toString())
+                    .overwrite(true)
+                    .build();
+            command.run(commandDriver);
+        }
+
+        private void destroyVm(boolean swallowException) {
+            try {
+                new DestroyCommand().run(commandDriver);
+            } catch (Throwable th) {
+                final String errorMsg = "`vagrant destroy` failed with exception. The virtual machine may have to be removed from VirtualBox manually.";
+                if (swallowException) {
+                    log(listener, errorMsg, th);
+                } else {
+                    throw new IllegalStateException(errorMsg, th);
+                }
+            }
+        }
+
+        private FilePath getVagrantDir() {
+            return new FilePath(vagrantEnv.getWorkingDir().toFile());
+        }
     }
 
     @Extension

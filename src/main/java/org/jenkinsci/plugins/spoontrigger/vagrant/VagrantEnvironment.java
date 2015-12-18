@@ -1,6 +1,7 @@
 package org.jenkinsci.plugins.spoontrigger.vagrant;
 
 import com.google.common.base.Optional;
+import lombok.Getter;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -18,10 +19,12 @@ public class VagrantEnvironment implements Closeable {
     public static final String OUTPUT_DIRECTORY = "output";
     public static final String XSTUDIO_EXE_FILE = "xstudio.exe";
     public static final String XSTUDIO_LICENSE_FILE = "license.txt";
+    public static final String IMAGE_SVM_FILE = "image.svm";
     public static final String VAGRANT_FILE = "Vagrantfile";
     public static final String INSTALL_SCRIPT_FILE = "install.ps1";
     public static final String INSTALLER_PATH_ON_GUEST_MACHINE = "C:\\vagrant\\install\\install.exe";
 
+    @Getter
     private final Path workingDir;
 
     private VagrantEnvironment(Path workingDir) {
@@ -30,6 +33,10 @@ public class VagrantEnvironment implements Closeable {
 
     public static EnvironmentBuilder builder(Path workingDir) {
         return new EnvironmentBuilder(workingDir);
+    }
+
+    public Path getImagePath() {
+        return Paths.get(workingDir.toString(), OUTPUT_DIRECTORY, IMAGE_SVM_FILE);
     }
 
     @Override
