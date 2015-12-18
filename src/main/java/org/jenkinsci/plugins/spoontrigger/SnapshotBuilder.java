@@ -28,6 +28,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -61,11 +62,11 @@ public class SnapshotBuilder extends BaseBuilder {
         try {
             ScheduledTasksApi tasks = new ScheduledTasksApi(build.getEnv().get(), new FilePath(vagrantDir.toFile()), build.getCharset(), launcher, listener);
             tasks.run(build.getProject().getName(), "cmd", "/c vagrant up");
-            destroyVirtualMachine(build, launcher, listener);
+            destroyVirtualMachine(vagrantDir, build, launcher, listener);
             return true;
         } catch (Throwable buildError) {
             try {
-                destroyVirtualMachine(build, launcher, listener);
+                destroyVirtualMachine(vagrantDir, build, launcher, listener);
             } catch (Throwable destroyError) {
                 log(listener, "`vagrant destroy` failed with exception. The virtual machine may have to be removed from VirtualBox manually.", destroyError);
             }
@@ -82,6 +83,7 @@ public class SnapshotBuilder extends BaseBuilder {
         VagrantEnvironment.EnvironmentBuilder environmentBuilder = VagrantEnvironment.builder(workingDir)
                 .box(vagrantBox)
                 .xStudioPath(xStudioPath)
+                .installerPath(Paths.get(build.getWorkspace().getRemote(), VagrantEnvironment.INSTALL_DIRECTORY, VagrantEnvironment.INSTALLER_EXE_FILE).toString())
                 .generateInstallScript("/S", false);
         if (xStudioLicensePath != null) {
             environmentBuilder.xStudioLicensePath(xStudioLicensePath);
@@ -91,8 +93,14 @@ public class SnapshotBuilder extends BaseBuilder {
         return workingDir;
     }
 
-    private void destroyVirtualMachine(SpoonBuild build, Launcher launcher, BuildListener listener) {
-        CommandDriver commandDriver = CommandDriver.builder(build).launcher(launcher).listener(listener).build();
+    private void destroyVirtualMachine(Path vagrantDir, SpoonBuild build, Launcher launcher, BuildListener listener) {
+        CommandDriver commandDriver = CommandDriver.builder()
+                .charset(build.getCharset())
+                .env(build.getEnv().get())
+                .pwd(new FilePath(vagrantDir.toFile()))
+                .launcher(launcher)
+                .listener(listener)
+                .build();
         new DestroyCommand().run(commandDriver);
     }
 

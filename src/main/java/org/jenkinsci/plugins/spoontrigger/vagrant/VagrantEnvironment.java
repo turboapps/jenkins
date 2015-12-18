@@ -14,6 +14,7 @@ import static org.jenkinsci.plugins.spoontrigger.utils.FileUtils.quietDeleteDire
 public class VagrantEnvironment implements Closeable {
     public static final String TOOLS_DIRECTORY = "tools";
     public static final String INSTALL_DIRECTORY = "install";
+    public static final String INSTALLER_EXE_FILE = "install.exe";
     public static final String OUTPUT_DIRECTORY = "output";
     public static final String XSTUDIO_EXE_FILE = "xstudio.exe";
     public static final String XSTUDIO_LICENSE_FILE = "license.txt";
@@ -46,6 +47,7 @@ public class VagrantEnvironment implements Closeable {
         private Optional<String> xStudioPath = Optional.absent();
         private Optional<String> xStudioLicensePath = Optional.absent();
         private Optional<String> box = Optional.absent();
+        private Optional<String> installerPath = Optional.absent();
         private Optional<String> installScriptPath = Optional.absent();
         private Optional<String> installerArgs = Optional.absent();
         private boolean ignoreExitCode = false;
@@ -61,6 +63,11 @@ public class VagrantEnvironment implements Closeable {
 
         public EnvironmentBuilder xStudioLicensePath(String path) {
             this.xStudioLicensePath = Optional.of(path);
+            return this;
+        }
+
+        public EnvironmentBuilder installerPath(String path) {
+            this.installerPath = Optional.of(path);
             return this;
         }
 
@@ -82,7 +89,8 @@ public class VagrantEnvironment implements Closeable {
 
         public VagrantEnvironment build() {
             checkState(box.isPresent(), "VagrantBox not defined");
-            checkState(xStudioPath.isPresent(), "XStudioPath path not defined");
+            checkState(xStudioPath.isPresent(), "XStudioPath not defined");
+            checkState(installerPath.isPresent(), "InstallerPath not defined");
             checkState(installerArgs.isPresent() ^ installScriptPath.isPresent(), "Only one parameter: `installerArgs` or `installScriptPath` must be defined");
 
             setupToolsDirectory();
@@ -111,6 +119,12 @@ public class VagrantEnvironment implements Closeable {
             Path installDir = Paths.get(workingDir.toString(), INSTALL_DIRECTORY);
 
             createDirectoryIfNotExist(installDir);
+
+            if (installerPath.isPresent()) {
+                Path installerSourcePath = Paths.get(installerPath.get());
+                Path installerDestPath = Paths.get(workingDir.toString(), INSTALL_DIRECTORY, INSTALLER_EXE_FILE);
+                copyFile(installerSourcePath, installerDestPath);
+            }
 
             if (installScriptPath.isPresent()) {
                 Path installScriptSourcePath = Paths.get(installScriptPath.get());
