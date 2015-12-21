@@ -57,6 +57,7 @@ public class VagrantEnvironment implements Closeable {
         private Optional<String> installerPath = Optional.absent();
         private Optional<String> installScriptPath = Optional.absent();
         private Optional<String> installerArgs = Optional.absent();
+        private Optional<String> startupFilePath = Optional.absent();
         private boolean ignoreExitCode = false;
 
         public EnvironmentBuilder(Path workingDir) {
@@ -75,6 +76,11 @@ public class VagrantEnvironment implements Closeable {
 
         public EnvironmentBuilder installerPath(String path) {
             this.installerPath = Optional.of(path);
+            return this;
+        }
+
+        public EnvironmentBuilder startupFilePath(String path) {
+            this.startupFilePath = Optional.of(path);
             return this;
         }
 
@@ -144,7 +150,7 @@ public class VagrantEnvironment implements Closeable {
 
             if (installerArgs.isPresent()) {
                 ArrayList<String> scriptContent = new ArrayList<String>(2);
-                scriptContent.add("& " + INSTALLER_PATH_ON_GUEST_MACHINE + " " + installerArgs.get() + " | Out-Null");
+                scriptContent.add("& " + INSTALLER_PATH_ON_GUEST_MACHINE + " " + installerArgs.get() + " | Write-Host");
                 if (ignoreExitCode) {
                     scriptContent.add("exit 0");
                 }
@@ -169,7 +175,7 @@ public class VagrantEnvironment implements Closeable {
         }
 
         private void setupWorkingDirectory(String vagrantBox, String installScriptName) {
-            VagrantFileTemplate vagrantFileTemplate = new VagrantFileTemplate(installScriptName, vagrantBox);
+            VagrantFileTemplate vagrantFileTemplate = new VagrantFileTemplate(installScriptName, vagrantBox, startupFilePath.orNull());
             try {
                 vagrantFileTemplate.save(Paths.get(workingDir.toString(), VAGRANT_FILE));
             } catch (IOException ex) {

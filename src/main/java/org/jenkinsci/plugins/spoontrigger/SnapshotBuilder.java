@@ -19,7 +19,6 @@ import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.scheduledtasks.ScheduledTasksApi;
 import org.jenkinsci.plugins.spoontrigger.snapshot.InstallScriptStrategy;
 import org.jenkinsci.plugins.spoontrigger.snapshot.StartupFileStrategy;
-import org.jenkinsci.plugins.spoontrigger.utils.FileUtils;
 import org.jenkinsci.plugins.spoontrigger.utils.JsonOption;
 import org.jenkinsci.plugins.spoontrigger.vagrant.VagrantEnvironment;
 import org.jenkinsci.plugins.spoontrigger.validation.*;
@@ -40,6 +39,8 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
+import static org.jenkinsci.plugins.spoontrigger.utils.FileUtils.deleteDirectoryTree;
+import static org.jenkinsci.plugins.spoontrigger.utils.FileUtils.quietDeleteChildren;
 import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
 
 public class SnapshotBuilder extends BaseBuilder {
@@ -91,7 +92,6 @@ public class SnapshotBuilder extends BaseBuilder {
         return this.installScriptSettings.getInstallScriptPath();
     }
 
-
     public StartupFileStrategy getStartupFileStrategy() {
         return this.startupFileSettings.getStrategy();
     }
@@ -104,46 +104,61 @@ public class SnapshotBuilder extends BaseBuilder {
     protected void prebuild(SpoonBuild build, BuildListener listener) {
         checkState(xStudioPath != null, String.format(REQUIRE_NOT_NULL_OR_EMPTY_S, "xStudioPath"));
         checkState(vagrantBox != null, String.format(REQUIRE_NOT_NULL_OR_EMPTY_S, "vagrantBox"));
+
+        installScriptSettings.validate();
+        startupFileSettings.validate();
     }
 
     @Override
     public boolean perform(SpoonBuild build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
-        VagrantEnvironment vagrantEnv = createVagrantEnvironment(build);
+        String workspace = Paths.get(build.getWorkspace().getRemote()).toString();
+        VagrantEnvironment vagrantEnv = createVagrantEnvironment(build, workspace);
         try {
             SnapshotTaker snapshotTaker = new SnapshotTaker(build, vagrantEnv, launcher, listener);
             snapshotTaker.takeSnapshot();
             return true;
         } finally {
-            FileUtils.deleteDirectoryTree(vagrantEnv.getWorkingDir());
+            // Jenkins build workspace is located in Program Files
+            // Vagrant working dir was moved to temp, because the Vagrant process running as a scheduled task does not have write access to Program Files
+            quietDeleteChildren(Paths.get(workspace));
+            deleteDirectoryTree(vagrantEnv.getWorkingDir());
         }
     }
 
-    private VagrantEnvironment createVagrantEnvironment(SpoonBuild build) throws IOException {
+    private VagrantEnvironment createVagrantEnvironment(SpoonBuild build, String buildWorkspace) throws IOException {
         String projectNameToUse = INVALID_CHARACTERS_PATTERN.matcher(build.getProject().getName()).replaceAll("");
         Path workingDir = Files.createTempDirectory("jenkins-" + projectNameToUse + "-build-");
 
-        String buildWorkspace = Paths.get(build.getWorkspace().getRemote()).toString();
+        importAsImage = loadImportImageName(buildWorkspace);
+
         VagrantEnvironment.EnvironmentBuilder environmentBuilder = VagrantEnvironment.builder(workingDir)
                 .box(vagrantBox)
                 .xStudioPath(xStudioPath)
-                .installerPath(Paths.get(buildWorkspace, VagrantEnvironment.INSTALL_DIRECTORY, VagrantEnvironment.INSTALLER_EXE_FILE).toString())
-                .generateInstallScript("/S", false);
+                .installerPath(Paths.get(buildWorkspace, VagrantEnvironment.INSTALL_DIRECTORY, VagrantEnvironment.INSTALLER_EXE_FILE).toString());
+
         if (xStudioLicensePath != null) {
             environmentBuilder.xStudioLicensePath(xStudioLicensePath);
         }
 
-        Path imageFilePath = Paths.get(buildWorkspace, IMAGE_NAME_FILE);
+        installScriptSettings.configure(environmentBuilder);
+        startupFileSettings.configure(environmentBuilder);
+
+        return environmentBuilder.build();
+    }
+
+    private Optional<Image> loadImportImageName(String workspacePath) throws IOException {
+        Path imageFilePath = Paths.get(workspacePath, IMAGE_NAME_FILE);
         if (imageFilePath.toFile().exists()) {
             BufferedReader reader = Files.newBufferedReader(imageFilePath, Charset.defaultCharset());
             try {
                 String imageName = reader.readLine();
-                importAsImage = Optional.of(Image.parse(imageName));
+                return Optional.of(Image.parse(imageName));
             } finally {
                 final boolean swallowException = true;
                 Closeables.close(reader, swallowException);
             }
         }
-        return environmentBuilder.build();
+        return Optional.absent();
     }
 
     private class SnapshotTaker {
@@ -185,7 +200,7 @@ public class SnapshotBuilder extends BaseBuilder {
         }
 
         private void provisionVm() throws IOException, InterruptedException {
-            scheduledTasksApi.run(build.getProject().getName() + " - vagrant up", "cmd", "/c vagrant up");
+            scheduledTasksApi.run(build.getProject().getName() + " - vagrant up", "vagrant", "up");
         }
 
         private void importImage() {
@@ -204,7 +219,7 @@ public class SnapshotBuilder extends BaseBuilder {
 
         private void destroyVm(boolean swallowException) {
             try {
-                scheduledTasksApi.run(build.getProject().getName() + " - vagrant destroy", "cmd", "/c vagrant destroy --force");
+                scheduledTasksApi.run(build.getProject().getName() + " - vagrant destroy", "vagrant", "destroy --force");
             } catch (Throwable th) {
                 final String errorMsg = "`vagrant destroy` failed with exception. The virtual machine may have to be removed from VirtualBox manually.";
                 if (swallowException) {
@@ -239,6 +254,30 @@ public class SnapshotBuilder extends BaseBuilder {
 
             return new InstallScriptSettings(installScriptStrategy, silentInstallArgs, ignoreExitCode, installScriptPath);
         }
+
+        public void validate() {
+            switch (strategy) {
+                case FIXED:
+                    checkState(!Strings.isNullOrEmpty(installScriptPath), String.format(REQUIRE_NOT_NULL_OR_EMPTY_S, "installScriptPath"));
+                    break;
+                case TEMPLATE:
+                default:
+                    break;
+            }
+        }
+
+        public void configure(VagrantEnvironment.EnvironmentBuilder environmentBuilder) {
+            switch (strategy) {
+                case FIXED:
+                    environmentBuilder.installScriptPath(installScriptPath);
+                    break;
+                case TEMPLATE:
+                    environmentBuilder.generateInstallScript(silentInstallArgs, ignoreExitCode);
+                    break;
+                default:
+                    throw new IllegalStateException("Unknown install script strategy: " + String.valueOf(strategy));
+            }
+        }
     }
 
     @Data
@@ -257,6 +296,29 @@ public class SnapshotBuilder extends BaseBuilder {
             String startupFilePath = json.getString("startupFilePath").orNull();
 
             return new StartupFileSettings(startupFileStrategy, startupFilePath);
+        }
+
+        public void validate() {
+            switch (strategy) {
+                case FIXED:
+                    checkState(!Strings.isNullOrEmpty(startupFilePath), String.format(REQUIRE_NOT_NULL_OR_EMPTY_S, "startupFilePath"));
+                    break;
+                case STUDIO:
+                default:
+                    break;
+            }
+        }
+
+        public void configure(VagrantEnvironment.EnvironmentBuilder environmentBuilder) {
+            switch (strategy) {
+                case FIXED:
+                    environmentBuilder.startupFilePath(startupFilePath);
+                    break;
+                case STUDIO:
+                    break;
+                default:
+                    throw new IllegalStateException("Unknown startup file strategy: " + String.valueOf(strategy));
+            }
         }
     }
 

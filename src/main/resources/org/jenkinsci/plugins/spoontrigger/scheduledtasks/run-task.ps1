@@ -55,7 +55,7 @@ Try
 
     try
     {
-        $taskAction = New-ScheduledTaskAction -Execute $Path -Argument "$Arguments >> $logFilePath 2>&1" -WorkingDirectory $workingDirectoryToUse
+        $taskAction = New-ScheduledTaskAction -Execute PowerShell.exe -Argument "-WindowStyle Hidden -Command ""& {$Path $Arguments >> $logFilePath 2>&1}""" -WorkingDirectory $workingDirectoryToUse
         Log-Status "Registering scheduled task '$TaskName'"
         Register-ScheduledTask -Action $taskAction -TaskName $TaskName | Out-Null
         

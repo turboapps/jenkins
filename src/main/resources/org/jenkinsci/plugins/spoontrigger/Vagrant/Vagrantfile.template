@@ -1,6 +1,7 @@
 # Two commented out lines below should be auto-generated
 # install_script = "install.ps1"
 # vagrant_box = "opentable/win-2012r2-standard-amd64-nocm"
+# startup_file = ""
 
 # Vagrantfile
 
@@ -14,7 +15,12 @@ image_path = "#{output_dir}\\image.svm"
 
 xstudio_license_option = ""
 if(File.exist?('tools\\license.txt'))
-   xstudio_license_option = "/l #{xstudio_license_path}" 
+   xstudio_license_option = "/l #{xstudio_license_path}"
+end
+
+xstudio_startup_file_option = ""
+if(startup_file)
+  xstudio_startup_file_option = "/startupfile #{startup_file}"
 end
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
@@ -47,6 +53,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   config.vm.provision :shell do |s|
     s.name = "Building application image"
-    s.inline = "#{xstudio_path} #{output_dir}\\snapshot.xappl /o #{image_path} #{xstudio_license_option}"
+    s.inline = "#{xstudio_path} #{output_dir}\\snapshot.xappl #{xstudio_startup_file_option} /o #{image_path} #{xstudio_license_option}"
   end
 end
