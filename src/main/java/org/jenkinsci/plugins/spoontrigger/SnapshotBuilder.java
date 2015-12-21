@@ -200,7 +200,7 @@ public class SnapshotBuilder extends BaseBuilder {
         }
 
         private void provisionVm() throws IOException, InterruptedException {
-            scheduledTasksApi.run(build.getProject().getName() + " - vagrant up", "vagrant", "up");
+            scheduledTasksApi.run(build.getProject().getName() + " - vagrant up", "vagrant up");
         }
 
         private void importImage() {
@@ -219,7 +219,8 @@ public class SnapshotBuilder extends BaseBuilder {
 
         private void destroyVm(boolean swallowException) {
             try {
-                scheduledTasksApi.run(build.getProject().getName() + " - vagrant destroy", "vagrant", "destroy --force");
+
+                scheduledTasksApi.run(build.getProject().getName() + " - vagrant destroy", "vagrant destroy --force");
             } catch (Throwable th) {
                 final String errorMsg = "`vagrant destroy` failed with exception. The virtual machine may have to be removed from VirtualBox manually.";
                 if (swallowException) {

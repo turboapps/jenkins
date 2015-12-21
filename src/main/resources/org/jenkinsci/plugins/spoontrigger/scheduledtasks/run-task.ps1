@@ -3,11 +3,9 @@ param
 (
 	[Parameter(Mandatory=$True,ValueFromPipeline=$True,ValueFromPipelineByPropertyName=$True,HelpMessage="Name of the scheduled task")]
 	[string] $TaskName,
-    [Parameter(Mandatory=$True,ValueFromPipeline=$True,ValueFromPipelineByPropertyName=$True,HelpMessage="Path to the program to execute")]
-    [string] $Path,
-    [Parameter(ValueFromPipeline=$True,ValueFromPipelineByPropertyName=$True,HelpMessage="Program arguments")]
-    [string] $Arguments,
-    [Parameter(ValueFromPipeline=$True,ValueFromPipelineByPropertyName=$True,HelpMessage="Program to execute")]
+    [Parameter(Mandatory=$True,ValueFromPipeline=$True,ValueFromPipelineByPropertyName=$True,HelpMessage="Command to run")]
+    [string] $Command,
+    [Parameter(ValueFromPipeline=$True,ValueFromPipelineByPropertyName=$True,HelpMessage="Working directory")]
 	[string] $WorkingDirectory
 )
 
@@ -55,7 +53,8 @@ Try
 
     try
     {
-        $taskAction = New-ScheduledTaskAction -Execute PowerShell.exe -Argument "-WindowStyle Hidden -Command ""& {$Path $Arguments >> $logFilePath 2>&1}""" -WorkingDirectory $workingDirectoryToUse
+        $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes("$Command >> $logFilePath 2>&1"))
+        $taskAction = New-ScheduledTaskAction -Execute PowerShell.exe -Argument "-WindowStyle Hidden -EncodedCommand $encodedCommand" -WorkingDirectory $workingDirectoryToUse
         Log-Status "Registering scheduled task '$TaskName'"
         Register-ScheduledTask -Action $taskAction -TaskName $TaskName | Out-Null
         

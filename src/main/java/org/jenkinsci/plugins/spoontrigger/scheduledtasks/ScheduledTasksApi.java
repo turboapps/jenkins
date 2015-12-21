@@ -50,7 +50,10 @@ public class ScheduledTasksApi {
         executeCommandAssertExitCode(args, new NullOutputStream());
     }
 
-    public void run(String taskName, String program, String arguments) throws IOException, InterruptedException {
+    /**
+     * Executes PowerShell command using a scheduled task. If a scheduled task with the specified name already exists it will be deleted.
+     */
+    public void run(String taskName, String command) throws IOException, InterruptedException {
         Path tempDir = Files.createTempDirectory("scheduledtask-");
         try {
             Path launchScriptPath = Paths.get(tempDir.toString(), SCHEDULED_TASKS_RUN_RESOURCE_ID);
@@ -63,7 +66,7 @@ public class ScheduledTasksApi {
                 Closeables.close(outputStream, swallowIoException);
             }
 
-            ArgumentListBuilder runCommand = getRunCommand(launchScriptPath, taskName, program, arguments);
+            ArgumentListBuilder runCommand = getRunCommand(launchScriptPath, taskName, command);
             executeCommandAssertExitCode(runCommand, listener.getLogger());
         } finally {
             FileUtils.deleteDirectoryTree(tempDir);
@@ -122,7 +125,7 @@ public class ScheduledTasksApi {
         return this.launcher.launch().pwd(this.pwd).envs(this.env).cmds(argumentList).stdout(out).join();
     }
 
-    private ArgumentListBuilder getRunCommand(Path launchScriptPath, String taskName, String program, String arguments) {
+    private ArgumentListBuilder getRunCommand(Path launchScriptPath, String taskName, String command) {
         return new ArgumentListBuilder("powershell")
                 .add("-WindowStyle")
                 .add("Hidden")
@@ -130,10 +133,8 @@ public class ScheduledTasksApi {
                 .addQuoted(launchScriptPath.toAbsolutePath().toString())
                 .add("-TaskName")
                 .add(taskName)
-                .add("-Path")
-                .addQuoted(program)
-                .add("-Arguments")
-                .add(arguments)
+                .add("-Command")
+                .add(command)
                 .add("-WorkingDir")
                 .add(pwd.getRemote());
     }
