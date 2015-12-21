@@ -10,12 +10,15 @@ import hudson.model.BuildListener;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
+import lombok.Data;
 import lombok.Getter;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.ImportCommand;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.scheduledtasks.ScheduledTasksApi;
+import org.jenkinsci.plugins.spoontrigger.snapshot.InstallScriptStrategy;
+import org.jenkinsci.plugins.spoontrigger.snapshot.StartupFileStrategy;
 import org.jenkinsci.plugins.spoontrigger.utils.FileUtils;
 import org.jenkinsci.plugins.spoontrigger.utils.JsonOption;
 import org.jenkinsci.plugins.spoontrigger.vagrant.VagrantEnvironment;
@@ -27,6 +30,7 @@ import org.kohsuke.stapler.StaplerRequest;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.Serializable;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -43,17 +47,57 @@ public class SnapshotBuilder extends BaseBuilder {
     private static final String IMAGE_NAME_FILE = "image.txt";
     private static final Pattern INVALID_CHARACTERS_PATTERN = Pattern.compile("\\W+");
 
+    @Getter
+    private final InstallScriptSettings installScriptSettings;
+
+    @Getter
+    private final StartupFileSettings startupFileSettings;
+
     private final String xStudioPath;
     private final String xStudioLicensePath;
+
+    @Getter
     private final String vagrantBox;
 
     private Optional<Image> importAsImage = Optional.absent();
 
     @DataBoundConstructor
-    public SnapshotBuilder(String xStudioPath, String xStudioLicensePath, String vagrantBox) {
+    public SnapshotBuilder(
+            String xStudioPath,
+            String xStudioLicensePath,
+            String vagrantBox,
+            InstallScriptSettings installScriptSettings,
+            StartupFileSettings startupFileSettings) {
         this.xStudioPath = Util.fixEmptyAndTrim(xStudioPath);
         this.xStudioLicensePath = Util.fixEmptyAndTrim(xStudioLicensePath);
         this.vagrantBox = Util.fixEmptyAndTrim(vagrantBox);
+        this.installScriptSettings = installScriptSettings;
+        this.startupFileSettings = startupFileSettings;
+    }
+
+    public InstallScriptStrategy getInstallScriptStrategy() {
+        return this.installScriptSettings.getStrategy();
+    }
+
+    public boolean getIgnoreExitCode() {
+        return this.installScriptSettings.isIgnoreExitCode();
+    }
+
+    public String getSilentInstallArgs() {
+        return this.installScriptSettings.getSilentInstallArgs();
+    }
+
+    public String getInstallScriptPath() {
+        return this.installScriptSettings.getInstallScriptPath();
+    }
+
+
+    public StartupFileStrategy getStartupFileStrategy() {
+        return this.startupFileSettings.getStrategy();
+    }
+
+    public String getStartupFilePath() {
+        return this.startupFileSettings.getStartupFilePath();
     }
 
     @Override
@@ -172,26 +216,75 @@ public class SnapshotBuilder extends BaseBuilder {
         }
     }
 
+    @Data
+    public static class InstallScriptSettings implements Serializable {
+        private InstallScriptStrategy strategy;
+        private String silentInstallArgs;
+        private boolean ignoreExitCode;
+        private String installScriptPath;
+
+        public InstallScriptSettings(InstallScriptStrategy strategy, String silentInstallArgs, boolean ignoreExitCode, String installScriptPath) {
+            this.strategy = strategy;
+            this.silentInstallArgs = silentInstallArgs;
+            this.ignoreExitCode = ignoreExitCode;
+            this.installScriptPath = installScriptPath;
+        }
+
+        public static InstallScriptSettings fromJson(JsonOption.ObjectWrapper json) {
+            String installStrategyName = json.getString("value").orNull();
+            InstallScriptStrategy installScriptStrategy = InstallScriptStrategy.valueOf(installStrategyName);
+            String silentInstallArgs = json.getString("silentInstallArgs").orNull();
+            boolean ignoreExitCode = json.getBoolean("ignoreExitCode").or(Boolean.FALSE);
+            String installScriptPath = json.getString("installScriptPath").orNull();
+
+            return new InstallScriptSettings(installScriptStrategy, silentInstallArgs, ignoreExitCode, installScriptPath);
+        }
+    }
+
+    @Data
+    public static class StartupFileSettings implements Serializable {
+        private StartupFileStrategy strategy;
+        private String startupFilePath;
+
+        public StartupFileSettings(StartupFileStrategy strategy, String startupFilePath) {
+            this.strategy = strategy;
+            this.startupFilePath = startupFilePath;
+        }
+
+        public static StartupFileSettings fromJson(JsonOption.ObjectWrapper json) {
+            String startupFileStrategyName = json.getString("value").orNull();
+            StartupFileStrategy startupFileStrategy = StartupFileStrategy.valueOf(startupFileStrategyName);
+            String startupFilePath = json.getString("startupFilePath").orNull();
+
+            return new StartupFileSettings(startupFileStrategy, startupFilePath);
+        }
+    }
+
     @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
 
         public static final String DEFAULT_VAGRANT_BOX = "opentable/win-2012r2-standard-amd64-nocm";
-        private static final Validator<File> SCRIPT_FILE_PATH_FILE_VALIDATOR;
+        private static final Validator<File> HOST_FILE_PATH_VALIDATOR;
         private static final Validator<String> VAGRANT_DEFAULT_BOX_VALIDATOR;
         private static final Validator<String> VAGRANT_BOX_VALIDATOR;
+        private static final Validator<String> VIRTUAL_FILE_PATH_VALIDATOR;
+        private static final Validator<String> SILENT_INSTALL_ARGS_VALIDATOR;
 
         static {
-            SCRIPT_FILE_PATH_FILE_VALIDATOR = Validators.chain(
+            HOST_FILE_PATH_VALIDATOR = Validators.chain(
                     FileValidators.exists(String.format(DOES_NOT_EXIST_S, "File")),
                     FileValidators.isFile(String.format(PATH_NOT_POINT_TO_ITEM_S, "a file")),
                     FileValidators.isPathAbsolute(PATH_SHOULD_BE_ABSOLUTE, Level.WARNING)
             );
+            VIRTUAL_FILE_PATH_VALIDATOR =
+                    StringValidators.isNotNull(String.format(REQUIRE_NON_EMPTY_STRING_S, "Parameter"), Level.ERROR);
             VAGRANT_DEFAULT_BOX_VALIDATOR = Validators.chain(
                     StringValidators.isNotNull(String.format(REQUIRE_NON_EMPTY_STRING_S, "Parameter"), Level.WARNING),
                     StringValidators.isSingleWord(String.format(REQUIRE_SINGLE_WORD_S, "Parameter")));
             VAGRANT_BOX_VALIDATOR = Validators.chain(
-                    StringValidators.isNotNull(IGNORE_PARAMETER, Level.OK),
+                    StringValidators.isNotNull(String.format("Empty value will be replaced by a default box from global configuration: %s", DEFAULT_VAGRANT_BOX), Level.OK),
                     StringValidators.isSingleWord(String.format(REQUIRE_SINGLE_WORD_S, "Parameter")));
+            SILENT_INSTALL_ARGS_VALIDATOR = StringValidators.isNotNull(String.format(IGNORE_PARAMETER, "Parameter"), Level.OK);
         }
 
         @Getter
@@ -228,15 +321,23 @@ public class SnapshotBuilder extends BaseBuilder {
             if (Strings.isNullOrEmpty(vagrantBoxToUse)) {
                 vagrantBoxToUse = getVagrantBox();
             }
-            return new SnapshotBuilder(getXStudioPath(), getXStudioLicensePath(), vagrantBoxToUse);
+
+            InstallScriptSettings installSettings = InstallScriptSettings.fromJson(jsonWrapper.getObject("installScriptStrategy").orNull());
+            StartupFileSettings startupFileSettings = StartupFileSettings.fromJson(jsonWrapper.getObject("startupFileStrategy").orNull());
+            return new SnapshotBuilder(getXStudioPath(), getXStudioLicensePath(), vagrantBoxToUse, installSettings, startupFileSettings);
         }
 
-        public FormValidation doCheckXStudioLicensePath(@QueryParameter String value) {
-            return validateOptionalFilePath(value);
+        public FormValidation doCheckHostFilePath(@QueryParameter String value) {
+            String filePath = Util.fixEmptyAndTrim(value);
+            if (filePath == null) {
+                return FormValidation.error(String.format(REQUIRE_NON_EMPTY_STRING_S, "Parameter"));
+            }
+            return Validators.validate(HOST_FILE_PATH_VALIDATOR, new File(filePath));
         }
 
-        public FormValidation doCheckXStudioPath(@QueryParameter String value) {
-            return validateOptionalFilePath(value);
+        public FormValidation doCheckVirtualFilePath(@QueryParameter String value) {
+            String virtualFilePath = Util.fixEmptyAndTrim(value);
+            return Validators.validate(VIRTUAL_FILE_PATH_VALIDATOR, virtualFilePath);
         }
 
         public FormValidation doCheckDefaultVagrantBox(@QueryParameter String value) {
@@ -249,20 +350,20 @@ public class SnapshotBuilder extends BaseBuilder {
             return Validators.validate(VAGRANT_BOX_VALIDATOR, vagrantBox);
         }
 
+        public FormValidation doCheckSilentInstallArgs(@QueryParameter String value) {
+            String silentInstallArgs = Util.fixEmptyAndTrim(value);
+            return Validators.validate(SILENT_INSTALL_ARGS_VALIDATOR, silentInstallArgs);
+        }
+
+        public String defaultSilentInstallArgs() {
+            return "/S";
+        }
+
         public String getVagrantBox() {
             if (Strings.isNullOrEmpty(vagrantBox)) {
                 return DEFAULT_VAGRANT_BOX;
             }
             return vagrantBox;
-        }
-
-        private FormValidation validateOptionalFilePath(String value) {
-            String filePath = Util.fixEmptyAndTrim(value);
-            if (filePath == null) {
-                return FormValidation.error(String.format(REQUIRE_NON_EMPTY_STRING_S, "Parameter"));
-            }
-
-            return Validators.validate(SCRIPT_FILE_PATH_FILE_VALIDATOR, new File(filePath));
         }
 
         @Override
