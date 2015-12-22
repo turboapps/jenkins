@@ -6,6 +6,7 @@ import com.google.common.io.Closeables;
 import com.google.common.reflect.TypeToken;
 import hudson.*;
 import hudson.model.AbstractProject;
+import hudson.model.AutoCompletionCandidates;
 import hudson.model.BuildListener;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
@@ -19,6 +20,7 @@ import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.scheduledtasks.ScheduledTasksApi;
 import org.jenkinsci.plugins.spoontrigger.snapshot.InstallScriptStrategy;
 import org.jenkinsci.plugins.spoontrigger.snapshot.StartupFileStrategy;
+import org.jenkinsci.plugins.spoontrigger.utils.AutoCompletion;
 import org.jenkinsci.plugins.spoontrigger.utils.JsonOption;
 import org.jenkinsci.plugins.spoontrigger.vagrant.VagrantEnvironment;
 import org.jenkinsci.plugins.spoontrigger.validation.*;
@@ -39,6 +41,7 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
+import static org.jenkinsci.plugins.spoontrigger.utils.AutoCompletion.suggestFiles;
 import static org.jenkinsci.plugins.spoontrigger.utils.FileUtils.deleteDirectoryTree;
 import static org.jenkinsci.plugins.spoontrigger.utils.FileUtils.quietDeleteChildren;
 import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
@@ -396,6 +399,18 @@ public class SnapshotBuilder extends BaseBuilder {
                 return FormValidation.error(String.format(REQUIRE_NON_EMPTY_STRING_S, "Parameter"));
             }
             return Validators.validate(HOST_FILE_PATH_VALIDATOR, new File(filePath));
+        }
+
+        public AutoCompletionCandidates doAutoCompleteXStudioPath(@QueryParameter String value) {
+            return suggestFiles(value);
+        }
+
+        public AutoCompletionCandidates doAutoCompleteXStudioLicensePath(@QueryParameter String value) {
+            return suggestFiles(value);
+        }
+
+        public AutoCompletionCandidates doAutoCompleteInstallScriptPath(@QueryParameter String value) {
+            return suggestFiles(value);
         }
 
         public FormValidation doCheckVirtualFilePath(@QueryParameter String value) {
