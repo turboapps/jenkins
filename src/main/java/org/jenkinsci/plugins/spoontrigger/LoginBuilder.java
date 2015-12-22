@@ -42,6 +42,8 @@ public class LoginBuilder extends BaseBuilder {
     @Getter
     private final String hubUrl;
 
+    private transient String hubUrlToUse;
+
     @DataBoundConstructor
     public LoginBuilder(String credentialsId, String hubUrl) {
         this.credentialsId = Util.fixEmptyAndTrim(credentialsId);
@@ -70,6 +72,14 @@ public class LoginBuilder extends BaseBuilder {
         return true;
     }
 
+    @Override
+    protected String getHubUrl() {
+        if (hubUrlToUse == null) {
+            return super.getHubUrl();
+        }
+        return hubUrlToUse;
+    }
+
     private void switchHub(CommandDriver client) {
         ConfigCommand.CommandBuilder cmdBuilder = ConfigCommand.builder();
         if (Strings.isNullOrEmpty(this.hubUrl)) {
@@ -80,6 +90,8 @@ public class LoginBuilder extends BaseBuilder {
 
         ConfigCommand configCommand = cmdBuilder.build();
         configCommand.run(client);
+
+        hubUrlToUse = configCommand.getHub().orNull();
     }
 
     private void login(CommandDriver client, StandardUsernamePasswordCredentials credentials) {

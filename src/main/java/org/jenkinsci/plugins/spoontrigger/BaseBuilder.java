@@ -65,7 +65,7 @@ public abstract class BaseBuilder extends Builder {
             return false;
         }
 
-        HubApi hubApi = new HubApi(listener);
+        HubApi hubApi = new HubApi(getHubUrl(), listener);
         try {
             boolean result = hubApi.isAvailableRemotely(remoteImage);
 
@@ -82,6 +82,10 @@ public abstract class BaseBuilder extends Builder {
             log(listener, msg, ex);
             return false;
         }
+    }
+
+    protected String getHubUrl() {
+        return "https://turbo.net";
     }
 
     private EnvVars getEnvironment(AbstractBuild<?, ?> build, BuildListener listener) throws IllegalStateException {

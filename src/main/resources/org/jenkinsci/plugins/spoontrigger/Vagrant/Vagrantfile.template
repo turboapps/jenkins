@@ -19,7 +19,7 @@ if(File.exist?('tools\\license.txt'))
 end
 
 xstudio_startup_file_option = ""
-if(startup_file)
+if(startup_file.nil? || startup_file.empty?)
   xstudio_startup_file_option = "/startupfile #{startup_file}"
 end
 
