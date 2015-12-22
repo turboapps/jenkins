@@ -8,6 +8,7 @@ import hudson.*;
 import hudson.model.AbstractProject;
 import hudson.model.AutoCompletionCandidates;
 import hudson.model.BuildListener;
+import hudson.model.Result;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
@@ -20,7 +21,6 @@ import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.scheduledtasks.ScheduledTasksApi;
 import org.jenkinsci.plugins.spoontrigger.snapshot.InstallScriptStrategy;
 import org.jenkinsci.plugins.spoontrigger.snapshot.StartupFileStrategy;
-import org.jenkinsci.plugins.spoontrigger.utils.AutoCompletion;
 import org.jenkinsci.plugins.spoontrigger.utils.JsonOption;
 import org.jenkinsci.plugins.spoontrigger.vagrant.VagrantEnvironment;
 import org.jenkinsci.plugins.spoontrigger.validation.*;
@@ -59,6 +59,7 @@ public class SnapshotBuilder extends BaseBuilder {
 
     private final String xStudioPath;
     private final String xStudioLicensePath;
+    private final boolean overwrite;
 
     @Getter
     private final String vagrantBox;
@@ -70,11 +71,13 @@ public class SnapshotBuilder extends BaseBuilder {
             String xStudioPath,
             String xStudioLicensePath,
             String vagrantBox,
+            boolean overwrite,
             InstallScriptSettings installScriptSettings,
             StartupFileSettings startupFileSettings) {
         this.xStudioPath = Util.fixEmptyAndTrim(xStudioPath);
         this.xStudioLicensePath = Util.fixEmptyAndTrim(xStudioLicensePath);
         this.vagrantBox = Util.fixEmptyAndTrim(vagrantBox);
+        this.overwrite = overwrite;
         this.installScriptSettings = installScriptSettings;
         this.startupFileSettings = startupFileSettings;
     }
@@ -110,20 +113,49 @@ public class SnapshotBuilder extends BaseBuilder {
 
         installScriptSettings.validate();
         startupFileSettings.validate();
+
+        build.setAllowOverwrite(overwrite);
     }
 
     @Override
     public boolean perform(SpoonBuild build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
         String workspace = Paths.get(build.getWorkspace().getRemote()).toString();
+        try {
+            importAsImage = loadImportImageName(workspace);
+
+            if (shouldAbort(build, listener)) {
+                build.setResult(Result.ABORTED);
+                return false;
+            }
+
+            takeSnapshot(workspace, build, launcher, listener);
+            return true;
+        } finally {
+            quietDeleteChildren(Paths.get(workspace));
+        }
+    }
+
+    private boolean shouldAbort(SpoonBuild build, BuildListener listener) {
+        if (build.isAllowOverwrite()) {
+            return false;
+        }
+
+        Result currentResult = build.getResult();
+        if (currentResult != null && currentResult.isWorseThan(Result.ABORTED)) {
+            return false;
+        }
+
+        return importAsImage.isPresent() && isAvailableRemotely(importAsImage.get(), listener);
+    }
+
+    private void takeSnapshot(String workspace, SpoonBuild build, Launcher launcher, BuildListener listener) throws IOException {
         VagrantEnvironment vagrantEnv = createVagrantEnvironment(build, workspace);
         try {
             SnapshotTaker snapshotTaker = new SnapshotTaker(build, vagrantEnv, launcher, listener);
             snapshotTaker.takeSnapshot();
-            return true;
         } finally {
-            // Jenkins build workspace is located in Program Files
-            // Vagrant working dir was moved to temp, because the Vagrant process running as a scheduled task does not have write access to Program Files
-            quietDeleteChildren(Paths.get(workspace));
+            // Vagrant working dir was moved to temp, because the Vagrant process running as a scheduled task
+            // does not have write access to the build workspace in Program Files
             deleteDirectoryTree(vagrantEnv.getWorkingDir());
         }
     }
@@ -131,9 +163,6 @@ public class SnapshotBuilder extends BaseBuilder {
     private VagrantEnvironment createVagrantEnvironment(SpoonBuild build, String buildWorkspace) throws IOException {
         String projectNameToUse = INVALID_CHARACTERS_PATTERN.matcher(build.getProject().getName()).replaceAll("");
         Path workingDir = Files.createTempDirectory("jenkins-" + projectNameToUse + "-build-");
-
-        importAsImage = loadImportImageName(buildWorkspace);
-
         VagrantEnvironment.EnvironmentBuilder environmentBuilder = VagrantEnvironment.builder(workingDir)
                 .box(vagrantBox)
                 .xStudioPath(xStudioPath)
@@ -210,7 +239,7 @@ public class SnapshotBuilder extends BaseBuilder {
             ImportCommand.CommandBuilder commandBuilder = ImportCommand.builder()
                     .type("svm")
                     .path(vagrantEnv.getImagePath().toString())
-                    .overwrite(true);
+                    .overwrite(overwrite);
 
             if (importAsImage.isPresent()) {
                 commandBuilder.name(importAsImage.get().printIdentifier());
@@ -387,10 +416,11 @@ public class SnapshotBuilder extends BaseBuilder {
             if (Strings.isNullOrEmpty(vagrantBoxToUse)) {
                 vagrantBoxToUse = getVagrantBox();
             }
+            boolean overwrite = jsonWrapper.getBoolean("overwrite").or(Boolean.FALSE);
 
             InstallScriptSettings installSettings = InstallScriptSettings.fromJson(jsonWrapper.getObject("installScriptStrategy").orNull());
             StartupFileSettings startupFileSettings = StartupFileSettings.fromJson(jsonWrapper.getObject("startupFileStrategy").orNull());
-            return new SnapshotBuilder(getXStudioPath(), getXStudioLicensePath(), vagrantBoxToUse, installSettings, startupFileSettings);
+            return new SnapshotBuilder(getXStudioPath(), getXStudioLicensePath(), vagrantBoxToUse, overwrite, installSettings, startupFileSettings);
         }
 
         public FormValidation doCheckHostFilePath(@QueryParameter String value) {

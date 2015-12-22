@@ -5,6 +5,8 @@ import hudson.Launcher;
 import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
 import hudson.tasks.Builder;
+import org.jenkinsci.plugins.spoontrigger.hub.HubApi;
+import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.utils.TaskListeners;
 
 import java.io.IOException;
@@ -13,6 +15,7 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.jenkinsci.plugins.spoontrigger.Messages.FAILED_RESOLVE_S;
 import static org.jenkinsci.plugins.spoontrigger.Messages.requireInstanceOf;
+import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
 
 public abstract class BaseBuilder extends Builder {
 
@@ -51,6 +54,35 @@ public abstract class BaseBuilder extends Builder {
     }
 
     protected abstract boolean perform(SpoonBuild build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException;
+
+    protected boolean isAvailableRemotely(Image remoteImage, BuildListener listener) {
+        if (remoteImage.getNamespace() == null) {
+            String msg = "Check if image " + remoteImage.printIdentifier() + " is available remotely is skipped," +
+                    " because the image name does not specify namespace and it can't be extracted" +
+                    " from Jenkins credentials";
+            log(listener, msg);
+
+            return false;
+        }
+
+        HubApi hubApi = new HubApi(listener);
+        try {
+            boolean result = hubApi.isAvailableRemotely(remoteImage);
+
+            if (result) {
+                String msg = String.format("Image %s is available remotely", remoteImage.printIdentifier());
+                log(listener, msg);
+            }
+
+            return result;
+        } catch (Exception ex) {
+            String msg = String.format("Failed to check if image %s is available remotely: %s",
+                    remoteImage.printIdentifier(),
+                    ex.getMessage());
+            log(listener, msg, ex);
+            return false;
+        }
+    }
 
     private EnvVars getEnvironment(AbstractBuild<?, ?> build, BuildListener listener) throws IllegalStateException {
         try {

@@ -36,4 +36,7 @@
             </f:entry>
         </f:radioBlock>
     </f:entry>
+    <f:entry title="Overwrite" field="overwrite">
+        <f:checkbox/>
+    </f:entry>
 </j:jelly>

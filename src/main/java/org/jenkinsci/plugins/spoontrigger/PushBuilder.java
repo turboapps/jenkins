@@ -14,7 +14,6 @@ import lombok.Getter;
 import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
-import org.jenkinsci.plugins.spoontrigger.hub.HubApi;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.push.PushConfig;
 import org.jenkinsci.plugins.spoontrigger.push.Pusher;
@@ -32,7 +31,6 @@ import java.io.IOException;
 
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
-import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
 
 public class PushBuilder extends BaseBuilder {
     @Nullable
@@ -97,32 +95,7 @@ public class PushBuilder extends BaseBuilder {
             return false;
         }
 
-        if (remoteImage.getNamespace() == null) {
-            String msg = "Check if image " + remoteImage.printIdentifier() + " is available remotely is skipped," +
-                    " because the image name does not specify namespace and it can't be extracted" +
-                    " from Jenkins credentials";
-            log(listener, msg);
-
-            return false;
-        }
-
-        HubApi hubApi = new HubApi(listener);
-        try {
-            boolean result = hubApi.isAvailableRemotely(remoteImage);
-
-            if (result) {
-                String msg = String.format("Image %s is available remotely", remoteImage.printIdentifier());
-                log(listener, msg);
-            }
-
-            return result;
-        } catch (Exception ex) {
-            String msg = String.format("Failed to check if image %s is available remotely: %s",
-                    remoteImage.printIdentifier(),
-                    ex.getMessage());
-            log(listener, msg, ex);
-            return false;
-        }
+        return isAvailableRemotely(remoteImage, listener);
     }
 
     private PushConfig cratePushConfig(Image localImage) {
