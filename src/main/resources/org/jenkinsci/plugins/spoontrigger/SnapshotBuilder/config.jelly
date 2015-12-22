@@ -39,4 +39,9 @@
     <f:entry title="Overwrite" field="overwrite">
         <f:checkbox/>
     </f:entry>
+    <f:advanced>
+        <f:entry title="Files to delete from snapshot" field="snapshotPathsToDelete">
+            <f:textarea default="${descriptor.defaultSnapshotPathsToDelete()}"/>
+        </f:entry>
+    </f:advanced>
 </j:jelly>

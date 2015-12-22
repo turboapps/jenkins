@@ -29,9 +29,4 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
      s.name = "Taking after snapshot"
      s.inline = "$t.afterSnapshotCommand$"
   end
-
-  config.vm.provision :shell do |s|
-    s.name = "Building application image"
-    s.inline = "$t.buildCommand$"
-  end
 end

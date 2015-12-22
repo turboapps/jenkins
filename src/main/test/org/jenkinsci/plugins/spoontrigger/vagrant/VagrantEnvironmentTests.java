@@ -32,7 +32,6 @@ public class VagrantEnvironmentTests {
         // when
         VagrantEnvironment environment = builder.generateInstallScript("/S", true)
                 .box(boxName)
-                .xStudioLicensePath(getTempPath(XSTUDIO_LICENSE_FILE))
                 .xStudioPath(getTempPath(XSTUDIO_EXE_FILE))
                 .installerPath(getTempPath(INSTALLER_EXE_FILE))
                 .build();
@@ -42,7 +41,6 @@ public class VagrantEnvironmentTests {
         Assert.assertTrue(Files.exists(Paths.get(workingDirPath, INSTALL_DIRECTORY, INSTALL_SCRIPT_FILE)));
         Assert.assertTrue(Files.exists(Paths.get(workingDirPath, INSTALL_DIRECTORY, INSTALLER_EXE_FILE)));
         Assert.assertTrue(Files.exists(Paths.get(workingDirPath, TOOLS_DIRECTORY, XSTUDIO_EXE_FILE)));
-        Assert.assertTrue(Files.exists(Paths.get(workingDirPath, TOOLS_DIRECTORY, XSTUDIO_LICENSE_FILE)));
 
         // when
         environment.close();

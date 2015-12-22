@@ -9,7 +9,6 @@ import org.stringtemplate.v4.ST;
 import org.stringtemplate.v4.misc.ErrorBuffer;
 import org.stringtemplate.v4.misc.STMessage;
 
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.Charset;
@@ -23,24 +22,17 @@ public class VagrantFileTemplate {
 
     private static final String TOOLS_DIR = "C:\\vagrant\\tools";
     private static final String OUTPUT_DIR = "C:\\vagrant\\output";
-    private static final String LICENSE_PATH = TOOLS_DIR + "\\license.txt";
     private static final String XSTUDIO_PATH = TOOLS_DIR + "\\xstudio.exe";
     private static final String SNAPSHOT_PATH = OUTPUT_DIR + "\\snapshot";
-    private static final String XAPPL_PATH = OUTPUT_DIR + "\\snapshot.xappl";
-    private static final String IMAGE_PATH = OUTPUT_DIR + "\\image.svm";
 
     private final String installScriptFileName;
-    private final String startupFile;
-    private final boolean hasLicense;
 
     @Getter
     private final String box;
 
-    public VagrantFileTemplate(String installScriptFileName, String box, @Nullable String startupFile, boolean hasLicense) {
+    public VagrantFileTemplate(String installScriptFileName, String box) {
         this.installScriptFileName = installScriptFileName;
         this.box = box;
-        this.startupFile = startupFile;
-        this.hasLicense = hasLicense;
     }
 
     public void save(Path templatePath) throws IOException {
@@ -88,28 +80,6 @@ public class VagrantFileTemplate {
                 .add("/o")
                 .addPath(OUTPUT_DIR)
                 .toString();
-    }
-
-    public String getBuildCommand() {
-        RubyArgumentListBuilder argumentBuilder = new RubyArgumentListBuilder()
-                .addPath(XSTUDIO_PATH)
-                .addPath(XAPPL_PATH)
-                .add("/o")
-                .addPath(IMAGE_PATH);
-
-        if (hasLicense) {
-            argumentBuilder
-                    .add("/l")
-                    .addPath(LICENSE_PATH);
-        }
-
-        if (startupFile != null) {
-            argumentBuilder
-                    .add("/startupfile")
-                    .addPath(startupFile);
-        }
-
-        return argumentBuilder.toString();
     }
 
     private ST getTemplate() throws IOException {

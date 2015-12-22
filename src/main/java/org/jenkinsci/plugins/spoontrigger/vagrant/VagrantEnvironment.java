@@ -17,12 +17,14 @@ public class VagrantEnvironment implements Closeable {
     public static final String INSTALL_DIRECTORY = "install";
     public static final String INSTALLER_EXE_FILE = "install.exe";
     public static final String OUTPUT_DIRECTORY = "output";
+    public static final String XAPPL_FILE = "snapshot.xappl";
     public static final String XSTUDIO_EXE_FILE = "xstudio.exe";
     public static final String XSTUDIO_LICENSE_FILE = "license.txt";
     public static final String IMAGE_SVM_FILE = "image.svm";
     public static final String VAGRANT_FILE = "Vagrantfile";
     public static final String INSTALL_SCRIPT_FILE = "install.ps1";
     public static final String INSTALLER_PATH_ON_GUEST_MACHINE = "C:\\vagrant\\install\\install.exe";
+
 
     @Getter
     private final Path workingDir;
@@ -33,6 +35,10 @@ public class VagrantEnvironment implements Closeable {
 
     public static EnvironmentBuilder builder(Path workingDir) {
         return new EnvironmentBuilder(workingDir);
+    }
+
+    public Path getXapplPath() {
+        return Paths.get(workingDir.toString(), OUTPUT_DIRECTORY, XAPPL_FILE);
     }
 
     public Path getImagePath() {
@@ -52,12 +58,10 @@ public class VagrantEnvironment implements Closeable {
         private final Path workingDir;
 
         private Optional<String> xStudioPath = Optional.absent();
-        private Optional<String> xStudioLicensePath = Optional.absent();
         private Optional<String> box = Optional.absent();
         private Optional<String> installerPath = Optional.absent();
         private Optional<String> installScriptPath = Optional.absent();
         private Optional<String> installerArgs = Optional.absent();
-        private Optional<String> startupFilePath = Optional.absent();
         private boolean ignoreExitCode = false;
 
         public EnvironmentBuilder(Path workingDir) {
@@ -69,18 +73,8 @@ public class VagrantEnvironment implements Closeable {
             return this;
         }
 
-        public EnvironmentBuilder xStudioLicensePath(String path) {
-            this.xStudioLicensePath = Optional.of(path);
-            return this;
-        }
-
         public EnvironmentBuilder installerPath(String path) {
             this.installerPath = Optional.of(path);
-            return this;
-        }
-
-        public EnvironmentBuilder startupFilePath(String path) {
-            this.startupFilePath = Optional.of(path);
             return this;
         }
 
@@ -120,12 +114,6 @@ public class VagrantEnvironment implements Closeable {
             Path xStudioSourcePath = Paths.get(xStudioPath.get());
             Path xStudioDestPath = Paths.get(toolsDir.toString(), XSTUDIO_EXE_FILE);
             copyFile(xStudioSourcePath, xStudioDestPath);
-
-            if (xStudioLicensePath.isPresent()) {
-                Path licenseSourcePath = Paths.get(xStudioLicensePath.get());
-                Path licenseDestPath = Paths.get(toolsDir.toString(), XSTUDIO_LICENSE_FILE);
-                copyFile(licenseSourcePath, licenseDestPath);
-            }
         }
 
         private String setupInstallDirectory() {
@@ -175,7 +163,7 @@ public class VagrantEnvironment implements Closeable {
         }
 
         private void setupWorkingDirectory(String vagrantBox, String installScriptName) {
-            VagrantFileTemplate vagrantFileTemplate = new VagrantFileTemplate(installScriptName, vagrantBox, startupFilePath.orNull(), xStudioLicensePath.isPresent());
+            VagrantFileTemplate vagrantFileTemplate = new VagrantFileTemplate(installScriptName, vagrantBox);
             try {
                 vagrantFileTemplate.save(Paths.get(workingDir.toString(), VAGRANT_FILE));
             } catch (IOException ex) {

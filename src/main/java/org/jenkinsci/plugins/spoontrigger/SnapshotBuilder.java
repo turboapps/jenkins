@@ -17,10 +17,12 @@ import lombok.Getter;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.ImportCommand;
+import org.jenkinsci.plugins.spoontrigger.commands.xstudio.BuildCommand;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.scheduledtasks.ScheduledTasksApi;
 import org.jenkinsci.plugins.spoontrigger.snapshot.InstallScriptStrategy;
 import org.jenkinsci.plugins.spoontrigger.snapshot.StartupFileStrategy;
+import org.jenkinsci.plugins.spoontrigger.snapshot.XapplEditor;
 import org.jenkinsci.plugins.spoontrigger.utils.JsonOption;
 import org.jenkinsci.plugins.spoontrigger.vagrant.VagrantEnvironment;
 import org.jenkinsci.plugins.spoontrigger.validation.*;
@@ -28,6 +30,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
+import javax.annotation.Nullable;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -36,6 +39,9 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -58,7 +64,8 @@ public class SnapshotBuilder extends BaseBuilder {
     private final StartupFileSettings startupFileSettings;
 
     private final String xStudioPath;
-    private final String xStudioLicensePath;
+    private final Optional<String> xStudioLicensePath;
+    private final ArrayList<String> snapshotPathsToDelete;
     private final boolean overwrite;
 
     @Getter
@@ -72,11 +79,13 @@ public class SnapshotBuilder extends BaseBuilder {
             String xStudioLicensePath,
             String vagrantBox,
             boolean overwrite,
+            Collection<String> snapshotFilesToDelete,
             InstallScriptSettings installScriptSettings,
             StartupFileSettings startupFileSettings) {
         this.xStudioPath = Util.fixEmptyAndTrim(xStudioPath);
-        this.xStudioLicensePath = Util.fixEmptyAndTrim(xStudioLicensePath);
+        this.xStudioLicensePath = Optional.fromNullable(Util.fixEmptyAndTrim(xStudioLicensePath));
         this.vagrantBox = Util.fixEmptyAndTrim(vagrantBox);
+        this.snapshotPathsToDelete = new ArrayList<String>(snapshotFilesToDelete);
         this.overwrite = overwrite;
         this.installScriptSettings = installScriptSettings;
         this.startupFileSettings = startupFileSettings;
@@ -166,14 +175,9 @@ public class SnapshotBuilder extends BaseBuilder {
         VagrantEnvironment.EnvironmentBuilder environmentBuilder = VagrantEnvironment.builder(workingDir)
                 .box(vagrantBox)
                 .xStudioPath(xStudioPath)
-                .installerPath(Paths.get(buildWorkspace, VagrantEnvironment.INSTALL_DIRECTORY, VagrantEnvironment.INSTALLER_EXE_FILE).toString());
-
-        if (xStudioLicensePath != null) {
-            environmentBuilder.xStudioLicensePath(xStudioLicensePath);
-        }
+                .installerPath(Paths.get(buildWorkspace, VagrantEnvironment.INSTALLER_EXE_FILE).toString());
 
         installScriptSettings.configure(environmentBuilder);
-        startupFileSettings.configure(environmentBuilder);
 
         return environmentBuilder.build();
     }
@@ -219,20 +223,58 @@ public class SnapshotBuilder extends BaseBuilder {
             this.scheduledTasksApi = new ScheduledTasksApi(env, vagrantDir, build.getCharset(), launcher, this.listener);
         }
 
-        public void takeSnapshot() {
+        private void takeSnapshot() {
             try {
-                provisionVm();
+                provisionVagrantVm();
+                editXappl();
+                buildImage();
                 importImage();
             } catch (Throwable buildError) {
-                // destroy VM and do not swallow the initial build error
-                destroyVm(true);
+                // do not swallow the initial build error
+                destroyVagrantVm(true);
                 throw new IllegalStateException("`vagrant up` failed with exception", buildError);
             }
-            destroyVm(false);
+            destroyVagrantVm(false);
         }
 
-        private void provisionVm() throws IOException, InterruptedException {
-            scheduledTasksApi.run(build.getProject().getName() + " - vagrant up", "vagrant up");
+        private void editXappl() throws Exception {
+            if (snapshotPathsToDelete.isEmpty()) {
+                return;
+            }
+
+            log(listener, "Removing redundant files from snapshot...");
+
+            XapplEditor editor = new XapplEditor();
+            Path xapplPath = vagrantEnv.getXapplPath();
+            editor.load(xapplPath);
+
+            for (String path : snapshotPathsToDelete) {
+                if (editor.fileExists(path)) {
+                    editor.removeFile(path);
+                } else {
+                    log(listener, String.format("File %s was not found in the snapshot", path));
+                }
+            }
+
+            editor.save(xapplPath);
+        }
+
+        private void buildImage() {
+            BuildCommand.CommandBuilder commandBuilder = BuildCommand.builder(xStudioPath)
+                    .xapplPath(vagrantEnv.getXapplPath().toString())
+                    .imagePath(vagrantEnv.getImagePath().toString());
+
+            if (xStudioLicensePath.isPresent()) {
+                commandBuilder.licensePath(xStudioLicensePath.get());
+            }
+
+            Optional<String> startupFile = startupFileSettings.getStartupFile();
+            if (startupFile.isPresent()) {
+                commandBuilder.startupFilePath(startupFile.get());
+            }
+
+            BuildCommand command = commandBuilder.build();
+            command.run(commandDriver);
         }
 
         private void importImage() {
@@ -249,9 +291,12 @@ public class SnapshotBuilder extends BaseBuilder {
             command.run(commandDriver);
         }
 
-        private void destroyVm(boolean swallowException) {
-            try {
+        private void provisionVagrantVm() throws IOException, InterruptedException {
+            scheduledTasksApi.run(build.getProject().getName() + " - vagrant up", "vagrant up");
+        }
 
+        private void destroyVagrantVm(boolean swallowException) {
+            try {
                 scheduledTasksApi.run(build.getProject().getName() + " - vagrant destroy", "vagrant destroy --force");
             } catch (Throwable th) {
                 final String errorMsg = "`vagrant destroy` failed with exception. The virtual machine may have to be removed from VirtualBox manually.";
@@ -342,13 +387,12 @@ public class SnapshotBuilder extends BaseBuilder {
             }
         }
 
-        public void configure(VagrantEnvironment.EnvironmentBuilder environmentBuilder) {
+        public Optional<String> getStartupFile() {
             switch (strategy) {
                 case FIXED:
-                    environmentBuilder.startupFilePath(startupFilePath);
-                    break;
+                    return Optional.of(startupFilePath);
                 case STUDIO:
-                    break;
+                    return Optional.absent();
                 default:
                     throw new IllegalStateException("Unknown startup file strategy: " + String.valueOf(strategy));
             }
@@ -417,10 +461,10 @@ public class SnapshotBuilder extends BaseBuilder {
                 vagrantBoxToUse = getVagrantBox();
             }
             boolean overwrite = jsonWrapper.getBoolean("overwrite").or(Boolean.FALSE);
-
+            Collection<String> snapshotPathsToDelete = extractVirtualFilePaths(jsonWrapper.getString("snapshotPathsToDelete").orNull());
             InstallScriptSettings installSettings = InstallScriptSettings.fromJson(jsonWrapper.getObject("installScriptStrategy").orNull());
             StartupFileSettings startupFileSettings = StartupFileSettings.fromJson(jsonWrapper.getObject("startupFileStrategy").orNull());
-            return new SnapshotBuilder(getXStudioPath(), getXStudioLicensePath(), vagrantBoxToUse, overwrite, installSettings, startupFileSettings);
+            return new SnapshotBuilder(getXStudioPath(), getXStudioLicensePath(), vagrantBoxToUse, overwrite, snapshotPathsToDelete, installSettings, startupFileSettings);
         }
 
         public FormValidation doCheckHostFilePath(@QueryParameter String value) {
@@ -467,6 +511,10 @@ public class SnapshotBuilder extends BaseBuilder {
             return "/S";
         }
 
+        public String defaultSnapshotPathsToDelete() {
+            return "@SYSDRIVE@\\tmp\\vagrant-shell.ps1" + System.lineSeparator() + "@SYSDRIVE@\\vagrant";
+        }
+
         public String getVagrantBox() {
             if (Strings.isNullOrEmpty(vagrantBox)) {
                 return DEFAULT_VAGRANT_BOX;
@@ -482,6 +530,22 @@ public class SnapshotBuilder extends BaseBuilder {
         @Override
         public String getDisplayName() {
             return "Take Studio snapshot";
+        }
+
+        private Collection<String> extractVirtualFilePaths(@Nullable String filePathList) {
+            if (filePathList == null) {
+                return Collections.emptyList();
+            }
+
+            String[] virtualFilePaths = filePathList.split(System.lineSeparator());
+            ArrayList<String> filePaths = new ArrayList<String>(virtualFilePaths.length);
+            for (String filePath : virtualFilePaths) {
+                String filePathToUse = Util.fixEmptyAndTrim(filePath);
+                if (filePathToUse != null) {
+                    filePaths.add(filePathToUse);
+                }
+            }
+            return filePaths;
         }
     }
 }
