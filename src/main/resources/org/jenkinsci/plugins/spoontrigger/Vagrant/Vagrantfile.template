@@ -1,34 +1,13 @@
-# Two commented out lines below should be auto-generated
-# install_script = "install.ps1"
-# vagrant_box = "opentable/win-2012r2-standard-amd64-nocm"
-# startup_file = ""
-
 # Vagrantfile
 
 VAGRANTFILE_API_VERSION = "2"
-tools_dir = "C:\\vagrant\\tools"
-xstudio_license_path = "#{tools_dir}\\license.txt"
-xstudio_path = "#{tools_dir}\\xstudio.exe"
-output_dir = "C:\\vagrant\\output"
-snapshot_path = "#{output_dir}\\snapshot"
-image_path = "#{output_dir}\\image.svm"
-
-xstudio_license_option = ""
-if(File.exist?('tools\\license.txt'))
-   xstudio_license_option = "/l #{xstudio_license_path}"
-end
-
-xstudio_startup_file_option = ""
-if(startup_file.nil? || startup_file.empty?)
-  xstudio_startup_file_option = "/startupfile #{startup_file}"
-end
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.provider :virtualbox do |v|
     v.gui = true
     v.memory = 2048
   end
-  config.vm.box = vagrant_box
+  config.vm.box = "$t.box$"
   config.vm.communicator = :winrm
   config.vm.guest = :windows
   config.vm.network :forwarded_port, host: 33389, guest: 3389, id: "rdp", auto_correct: true
@@ -37,22 +16,22 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # Automate snapshot using shell provisioner and xstudio
   config.vm.provision :shell do |s|
      s.name = "Taking before snapshot"
-     s.inline = "#{xstudio_path} /before /beforepath #{snapshot_path}"
+     s.inline = "$t.beforeSnapshotCommand$"
   end
 
   config.vm.provision :shell do |s|
     s.name = "Installing application"
     s.privileged = true
-    s.path = "install//#{install_script}"
+    s.path = "$t.installCommand$"
   end
 
   config.vm.provision :shell do |s|
      s.name = "Taking after snapshot"
-    s.inline = "#{xstudio_path} /after /beforepath #{snapshot_path} /o #{output_dir}"
+     s.inline = "$t.afterSnapshotCommand$"
   end
 
   config.vm.provision :shell do |s|
     s.name = "Building application image"
-    s.inline = "#{xstudio_path} #{output_dir}\\snapshot.xappl #{xstudio_startup_file_option} /o #{image_path} #{xstudio_license_option}"
+    s.inline = "$t.buildCommand$"
   end
 end

@@ -175,7 +175,7 @@ public class VagrantEnvironment implements Closeable {
         }
 
         private void setupWorkingDirectory(String vagrantBox, String installScriptName) {
-            VagrantFileTemplate vagrantFileTemplate = new VagrantFileTemplate(installScriptName, vagrantBox, startupFilePath.orNull());
+            VagrantFileTemplate vagrantFileTemplate = new VagrantFileTemplate(installScriptName, vagrantBox, startupFilePath.orNull(), xStudioLicensePath.isPresent());
             try {
                 vagrantFileTemplate.save(Paths.get(workingDir.toString(), VAGRANT_FILE));
             } catch (IOException ex) {
