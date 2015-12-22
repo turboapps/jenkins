@@ -537,7 +537,7 @@ public class SnapshotBuilder extends BaseBuilder {
                 return Collections.emptyList();
             }
 
-            String[] virtualFilePaths = filePathList.split(System.lineSeparator());
+            String[] virtualFilePaths = filePathList.split("\r?\n");
             ArrayList<String> filePaths = new ArrayList<String>(virtualFilePaths.length);
             for (String filePath : virtualFilePaths) {
                 String filePathToUse = Util.fixEmptyAndTrim(filePath);
