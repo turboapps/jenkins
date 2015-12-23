@@ -3,6 +3,7 @@ package org.jenkinsci.plugins.spoontrigger;
 import com.google.common.base.Optional;
 import com.google.common.reflect.TypeToken;
 import hudson.Extension;
+import hudson.FilePath;
 import hudson.Launcher;
 import hudson.Util;
 import hudson.model.AbstractProject;
@@ -10,6 +11,7 @@ import hudson.model.BuildListener;
 import hudson.model.Result;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
+import hudson.util.ArgumentListBuilder;
 import hudson.util.FormValidation;
 import lombok.Data;
 import lombok.Getter;
@@ -57,120 +59,163 @@ public class ModelBuilder extends BaseBuilder {
         checkState(outputImage != null, REQUIRE_OUTPUT_IMAGE);
 
         Path tempDir = Files.createTempDirectory(Paths.get(build.getWorkspace().getRemote()), "model-build-");
-        Path transcriptDir = Paths.get(tempDir.toString(), TRANSCRIPT_DIR).toAbsolutePath();
-        Path modelDir = Paths.get(tempDir.toString(), MODEL_DIR).toAbsolutePath();
         try {
-            profile(outputImage, transcriptDir, build, launcher, listener);
-            CommandDriver client = CommandDriver.scriptBuilder(build).launcher(launcher).listener(listener).build();
-            model(client, outputImage, transcriptDir, modelDir);
-            if (shouldPushModel(modelDir, listener)) {
-                pushModel(client, build, outputImage, modelDir);
-            } else {
-                build.setResult(Result.UNSTABLE);
-            }
+            ModelWorker worker = new ModelWorker(tempDir, build, launcher, listener);
+            worker.buildModel();
         } finally {
             deleteDirectoryTree(tempDir);
         }
         return true;
     }
 
-    private void pushModel(CommandDriver client, SpoonBuild build, Image localImage, Path modelDir) {
-        PushModelCommand.CommandBuilder builder = PushModelCommand.builder()
-                .localImage(localImage.printIdentifier())
-                .modelDirectory(modelDir.toString());
+    private class ModelWorker {
+        private final Path workingDir;
+        private final Path transcriptDir;
+        private final Path modelDir;
 
-        Optional<Image> remoteImage = build.getRemoteImage();
-        if (remoteImage.isPresent()) {
-            builder.remoteImage(remoteImage.get().printIdentifier());
+        private final SpoonBuild build;
+        private final Image image;
+        private final BuildListener listener;
+        private final CommandDriver driver;
+        private final ScheduledTasksApi tasksApi;
+
+        public ModelWorker(Path workingDirectory, SpoonBuild build, Launcher launcher, BuildListener listener) {
+            this.workingDir = workingDirectory;
+            this.transcriptDir = Paths.get(workingDirectory.toString(), TRANSCRIPT_DIR).toAbsolutePath();
+            this.modelDir = Paths.get(workingDirectory.toString(), MODEL_DIR).toAbsolutePath();
+
+            this.build = build;
+            this.image = build.getOutputImage().get();
+            this.listener = listener;
+
+            this.driver = CommandDriver.builder(build).launcher(launcher).listener(listener).build();
+            final boolean quiet = true;
+            this.tasksApi = new ScheduledTasksApi(
+                    build.getEnv().get(),
+                    new FilePath(workingDir.toFile()),
+                    build.getCharset(),
+                    launcher,
+                    listener,
+                    quiet);
         }
 
-        PushModelCommand pushModelCommand = builder.build();
-        pushModelCommand.run(client);
-    }
-
-    private void model(CommandDriver client, Image image, Path transcriptDir, Path modelDir) {
-        ModelCommand modelCommand = ModelCommand.builder().image(image.printIdentifier())
-                .transcriptDirectory(transcriptDir.toString())
-                .modelDirectory(modelDir.toString())
-                .build();
-        modelCommand.run(client);
-    }
-
-    private long getBufferSize(Path modelDir) {
-        File prefetchFile = Paths.get(modelDir.toString(), "p.xs").toFile();
-        if (prefetchFile.exists()) {
-            return prefetchFile.length();
+        public void buildModel() throws IOException, InterruptedException {
+            profile();
+            model();
+            if (shouldPush()) {
+                push();
+            } else {
+                Result currentResult = build.getResult();
+                if (currentResult == null || currentResult.isBetterThan(Result.UNSTABLE)) {
+                    build.setResult(Result.UNSTABLE);
+                }
+            }
         }
-        return 0L;
-    }
 
-    private boolean shouldPushModel(Path modelDir, BuildListener listener) {
-        if (pushGuardSettings == null) {
+        private void push() {
+            PushModelCommand.CommandBuilder builder = PushModelCommand.builder()
+                    .localImage(image.printIdentifier())
+                    .modelDirectory(modelDir.toString());
+
+            Optional<Image> remoteImage = build.getRemoteImage();
+            if (remoteImage.isPresent()) {
+                builder.remoteImage(remoteImage.get().printIdentifier());
+            }
+
+            PushModelCommand pushModelCommand = builder.build();
+            pushModelCommand.run(driver);
+        }
+
+        private void model() {
+            ModelCommand modelCommand = ModelCommand.builder().image(image.printIdentifier())
+                    .transcriptDirectory(transcriptDir.toString())
+                    .modelDirectory(modelDir.toString())
+                    .build();
+            modelCommand.run(driver);
+        }
+
+        private long getBufferSize() {
+            File prefetchFile = Paths.get(modelDir.toString(), "p.xs").toFile();
+            if (prefetchFile.exists()) {
+                return prefetchFile.length();
+            }
+            return 0L;
+        }
+
+        private boolean shouldPush() {
+            if (pushGuardSettings == null) {
+                return true;
+            }
+
+            Optional<Double> minBufferSizeMB = pushGuardSettings.getMinBufferSizeMB();
+            if (minBufferSizeMB.isPresent()) {
+                final long minBufferSize = Double.valueOf(minBufferSizeMB.get() * 1024 * 1024).longValue();
+                final long actualBufferSize = getBufferSize();
+                if (actualBufferSize < minBufferSize) {
+                    double actualBufferSizeInMB = (double) actualBufferSize / (1024.0 * 1024.0);
+                    String msg = String.format("Buffer size of %.2f MB is below the specified limit", actualBufferSizeInMB);
+                    log(listener, msg);
+                    return false;
+                }
+            }
             return true;
         }
 
-        Optional<Double> minBufferSizeMB = pushGuardSettings.getMinBufferSizeMB();
-        if (minBufferSizeMB.isPresent()) {
-            final long minBufferSize = Double.valueOf(minBufferSizeMB.get() * 1024 * 1024).longValue();
-            final long actualBufferSize = getBufferSize(modelDir);
-            if (actualBufferSize < minBufferSize) {
-                double actualBufferSizeInMB = (double) actualBufferSize / (1024.0 * 1024.0);
-                String msg = String.format("Buffer size of %.2f MB is below the specified limit", actualBufferSizeInMB);
-                log(listener, msg);
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * Profiling is implemented using scheduled tasks, because Jenkins build agent is running as a service without access to user interface.
-     */
-    private void profile(Image image, Path transcriptDir, SpoonBuild build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
-        ScheduledTasksApi taskApi = new ScheduledTasksApi(build.getEnv().get(), build.getWorkspace(), build.getCharset(), launcher, listener);
-
-        String taskName = getProjectId(build);
-        if (taskApi.isDefined(taskName)) {
-            taskApi.delete(taskName);
-        }
-
-        String command = BaseCommand.SPOON_CLIENT + " profile --mode=quiet --isolate=full "
-                + image.printIdentifier() + " \\\"" + transcriptDir.toString() + "\\\"";
-        taskApi.create(taskName, command);
-        try {
-            final int MaxAttempts = 60;
-            final int SleepTime = 5000;
-
-            taskApi.run(taskName);
-
-            boolean isProfileRunning = true;
-            for (int attempt = 1; attempt <= MaxAttempts && isProfileRunning; ++attempt) {
-                Thread.sleep(SleepTime);
-                isProfileRunning = taskApi.isRunning(taskName);
+        /**
+         * Profiling is implemented using scheduled tasks, because Jenkins build agent is running as a service without access to user interface.
+         */
+        private void profile() throws IOException, InterruptedException {
+            String taskName = getProjectId(build);
+            if (tasksApi.isDefined(taskName)) {
+                tasksApi.delete(taskName);
             }
 
-            if (isProfileRunning) {
-                throw new IllegalStateException("Profiling is running too long");
-            }
+            ArgumentListBuilder profileCommand = new ArgumentListBuilder(BaseCommand.SPOON_CLIENT)
+                    .add("profile")
+                    .add("--mode=quiet")
+                    .add("--isolate=full")
+                    .add(image.printIdentifier())
+                    .add(transcriptDir);
 
-            boolean isTranscriptSaved = false;
-            for (String filename : transcriptDir.toFile().list()) {
-                String extension = com.google.common.io.Files.getFileExtension(filename);
-                if ("xt".equals(extension)) {
-                    isTranscriptSaved = true;
-                    break;
+            log(listener, workingDir, profileCommand);
+            tasksApi.create(taskName, profileCommand.toString());
+            try {
+                final int MaxAttempts = 60;
+                final int SleepTime = 5000;
+
+                tasksApi.run(taskName);
+
+                boolean isProfileRunning = true;
+                for (int attempt = 1; attempt <= MaxAttempts && isProfileRunning; ++attempt) {
+                    Thread.sleep(SleepTime);
+                    isProfileRunning = tasksApi.isRunning(taskName);
+                }
+
+                checkState(!isProfileRunning, "Profiling is running too long");
+                checkState(isTranscriptSaved(), "Transcript files not found in directory %s", transcriptDir);
+            } finally {
+                try {
+                    tasksApi.delete(taskName);
+                } catch (Exception ex) {
+                    String errMsg = String.format("Failed to delete scheduled task %s: %s", taskName, ex.getMessage());
+                    log(listener, errMsg);
                 }
             }
+        }
 
-            checkState(isTranscriptSaved, "Transcript files not found in directory %s", transcriptDir);
-        } finally {
-            try {
-                taskApi.delete(taskName);
-            } catch (Exception ex) {
-                String errMsg = String.format("Failed to delete scheduled task %s: %s", taskName, ex.getMessage());
-                log(listener, errMsg);
+        private boolean isTranscriptSaved() {
+            String files[] = transcriptDir.toFile().list();
+            if (files == null) {
+                return false;
             }
+
+            for (String filename : files) {
+                String extension = com.google.common.io.Files.getFileExtension(filename);
+                if ("xt".equals(extension)) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 

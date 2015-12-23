@@ -1,7 +1,8 @@
 package org.jenkinsci.plugins.spoontrigger.scheduledtasks;
 
+import com.google.common.base.Charsets;
 import com.google.common.base.Optional;
-import com.google.common.collect.Iterables;
+import com.google.common.io.BaseEncoding;
 import com.google.common.io.Closeables;
 import com.google.common.io.Resources;
 import hudson.EnvVars;
@@ -22,27 +23,31 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collection;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class ScheduledTasksApi {
     private static final String SCHEDULED_TASKS_RUN_RESOURCE_ID = "run-task.ps1";
-    private static final String SCHEDULED_TASKS_TOOL = "schtasks";
-
-    private static final Pattern TASK_STATUS_PATTERN = Pattern.compile(".*\"(?<status>.*?)\"$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern QUOTES_PATTERN = Pattern.compile("^\"(?<value>.*)\"$");
 
     private final Charset charset;
     private final EnvVars env;
     private final FilePath pwd;
     private final Launcher launcher;
     private final TaskListener listener;
+    private final boolean quiet;
 
-    public ScheduledTasksApi(EnvVars env, FilePath pwd, Charset charset, Launcher launcher, TaskListener listener) {
+    public ScheduledTasksApi(EnvVars env, FilePath pwd, Charset charset, Launcher launcher, TaskListener listener, boolean quiet) {
         this.env = env;
         this.pwd = pwd;
         this.charset = charset;
         this.launcher = launcher;
         this.listener = listener;
+        this.quiet = quiet;
     }
 
     public void create(String taskName, String command) throws IOException, InterruptedException {
@@ -93,24 +98,58 @@ public class ScheduledTasksApi {
     }
 
     public Optional<String> getStatus(String taskName) throws IOException, InterruptedException {
+        Map<String, String> taskInfo = getTask(taskName);
+        return Optional.fromNullable(taskInfo.get("State"));
+    }
+
+    private Map<String, String> getTask(String taskName) throws IOException, InterruptedException {
         OutputStreamCollector outputStream = new OutputStreamCollector(new PrintStream(new NullOutputStream()), charset);
         try {
-            ArgumentListBuilder command = getStatusCommand(taskName);
+            ArgumentListBuilder command = getTaskCommand(taskName);
 
             int exitCode = executeCommand(command, outputStream);
-            if (exitCode != 0) {
-                return Optional.absent();
-            }
+            if (exitCode == 0) {
+                ArrayList<String> headers = null;
+                for (String line : outputStream.getLines()) {
+                    if (line.startsWith("#")) {
+                        continue;
+                    }
 
-            Collection<String> statuses = outputStream.findAll(TASK_STATUS_PATTERN);
-            if (statuses.isEmpty()) {
-                return Optional.absent();
+                    if (headers == null) {
+                        headers = extractValues(line);
+                        continue;
+                    }
+
+                    ArrayList<String> values = extractValues(line);
+                    Map<String, String> bag = new HashMap<String, String>();
+                    int maxPos = Math.min(values.size(), headers.size());
+                    for (int pos = 0; pos < maxPos; ++pos) {
+                        String property = headers.get(pos);
+                        String value = values.get(pos);
+                        bag.put(property, value);
+                    }
+                    return bag;
+                }
             }
-            return Optional.of(Iterables.getLast(statuses));
+            return Collections.emptyMap();
         } finally {
             final boolean swallowException = true;
             Closeables.close(outputStream, swallowException);
         }
+    }
+
+    private ArrayList<String> extractValues(String line) {
+        String[] rawValues = line.split(",");
+        ArrayList<String> values = new ArrayList<String>(rawValues.length);
+        for (String rawValue : rawValues) {
+            Matcher match = QUOTES_PATTERN.matcher(rawValue);
+            if (match.matches()) {
+                values.add(match.group("value"));
+            } else {
+                values.add(rawValue);
+            }
+        }
+        return values;
     }
 
     private void executeCommandAssertExitCode(ArgumentListBuilder argumentList, OutputStream out) throws IOException, InterruptedException {
@@ -122,7 +161,7 @@ public class ScheduledTasksApi {
     }
 
     private int executeCommand(ArgumentListBuilder argumentList, OutputStream out) throws IOException, InterruptedException {
-        return this.launcher.launch().pwd(this.pwd).envs(this.env).cmds(argumentList).stdout(out).join();
+        return this.launcher.launch().pwd(this.pwd).envs(this.env).cmds(argumentList).stdout(out).quiet(quiet).join();
     }
 
     private ArgumentListBuilder getRunCommand(Path launchScriptPath, String taskName, String command) {
@@ -140,33 +179,35 @@ public class ScheduledTasksApi {
     }
 
     private ArgumentListBuilder getRunCommand(String taskName) {
-        return new ArgumentListBuilder(SCHEDULED_TASKS_TOOL)
-                .add("/run")
-                .add("/tn").addQuoted(taskName);
-    }
-
-    private ArgumentListBuilder getCreateCommand(String taskName, String command) {
-        return new ArgumentListBuilder(SCHEDULED_TASKS_TOOL)
-                .add("/create")
-                .add("/tn").addQuoted(taskName)
-                .add("/tr").add(command)
-                .add("/sc").add("ONCE")
-                .add("/sd").add("01/01/1910")
-                .add("/st").add("00:00");
+        String command = String.format("Start-ScheduledTask -TaskName \"%s\"", taskName);
+        return getPowerShellCommand(command);
     }
 
     private ArgumentListBuilder getDeleteCommand(String taskName) {
-        return new ArgumentListBuilder(SCHEDULED_TASKS_TOOL)
-                .add("/delete")
-                .add("/tn").addQuoted(taskName)
-                .add("/f");
+        String command = String.format("Unregister-ScheduledTask -TaskName \"%s\" -Confirm:$False", taskName);
+        return getPowerShellCommand(command);
     }
 
-    private ArgumentListBuilder getStatusCommand(String taskName) {
-        return new ArgumentListBuilder(SCHEDULED_TASKS_TOOL)
-                .add("/query")
-                .add("/tn").addQuoted(taskName)
-                .add("/fo").add("csv")
-                .add("/nh");
+    private ArgumentListBuilder getTaskCommand(String taskName) {
+        String command = String.format("Get-ScheduledTask | Where-Object {$_.TaskName -like \"%s\"} | ConvertTo-CSV", taskName);
+        return getPowerShellCommand(command);
+    }
+
+    private ArgumentListBuilder getCreateCommand(String taskName, String command) {
+        String commandToUse = String.format(
+                "Register-ScheduledTask -Action (New-ScheduledTaskAction -Execute powershell.exe -Argument \"-WindowStyle Hidden -EncodedCommand %s\") -TaskName \"%s\"",
+                encodeBase64(command),
+                taskName);
+        return getPowerShellCommand(commandToUse);
+    }
+
+    private ArgumentListBuilder getPowerShellCommand(String command) {
+        return new ArgumentListBuilder("powershell.exe")
+                .add("-encodedCommand")
+                .add(encodeBase64(command));
+    }
+
+    private String encodeBase64(String value) {
+        return BaseEncoding.base64().encode(value.getBytes(Charsets.UTF_16LE));
     }
 }

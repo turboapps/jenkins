@@ -220,7 +220,8 @@ public class SnapshotBuilder extends BaseBuilder {
                     .launcher(launcher)
                     .listener(this.listener)
                     .build();
-            this.scheduledTasksApi = new ScheduledTasksApi(env, vagrantDir, build.getCharset(), launcher, this.listener);
+            final boolean quiet = false;
+            this.scheduledTasksApi = new ScheduledTasksApi(env, vagrantDir, build.getCharset(), launcher, this.listener, quiet);
         }
 
         private void takeSnapshot() {
