@@ -73,7 +73,7 @@ public class LoginBuilder extends BaseBuilder {
     }
 
     @Override
-    protected String getHubUrl() {
+    public String getHubUrl() {
         if (hubUrlToUse == null) {
             return super.getHubUrl();
         }
