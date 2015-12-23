@@ -58,7 +58,7 @@ public class ModelBuilder extends BaseBuilder {
         Image outputImage = build.getOutputImage().orNull();
         checkState(outputImage != null, REQUIRE_OUTPUT_IMAGE);
 
-        Path tempDir = Files.createTempDirectory(Paths.get(build.getWorkspace().getRemote()), "model-build-");
+        Path tempDir = Files.createTempDirectory("jenkins-model-" + build.getSanitizedProjectName() + "-build-");
         try {
             ModelWorker worker = new ModelWorker(tempDir, build, launcher, listener);
             worker.buildModel();

@@ -12,7 +12,6 @@ import hudson.model.BuildListener;
 import hudson.model.Result;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
-import hudson.util.ExceptionCatchingThreadFactory;
 import hudson.util.FormValidation;
 import lombok.Data;
 import lombok.Getter;
@@ -45,7 +44,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -58,7 +56,6 @@ import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
 public class SnapshotBuilder extends BaseBuilder {
 
     private static final String IMAGE_NAME_FILE = "image.txt";
-    private static final Pattern INVALID_CHARACTERS_PATTERN = Pattern.compile("\\W+");
 
     @Getter
     private final InstallScriptSettings installScriptSettings;
@@ -179,8 +176,7 @@ public class SnapshotBuilder extends BaseBuilder {
     }
 
     private VagrantEnvironment createVagrantEnvironment(SpoonBuild build, String buildWorkspace) throws IOException {
-        String projectNameToUse = INVALID_CHARACTERS_PATTERN.matcher(build.getProject().getName()).replaceAll("");
-        Path workingDir = Files.createTempDirectory("jenkins-" + projectNameToUse + "-build-");
+        Path workingDir = Files.createTempDirectory("jenkins-" + build.getSanitizedProjectName() + "-build-");
         VagrantEnvironment.EnvironmentBuilder environmentBuilder = VagrantEnvironment.builder(workingDir)
                 .box(vagrantBox)
                 .xStudioPath(xStudioPath)
