@@ -74,10 +74,13 @@ public class LoginBuilder extends BaseBuilder {
 
     @Override
     public String getHubUrl() {
-        if (hubUrlToUse == null) {
-            return super.getHubUrl();
+        if (hubUrlToUse != null) {
+            return hubUrlToUse;
         }
-        return hubUrlToUse;
+        if (hubUrl != null) {
+            return hubUrl;
+        }
+        return super.getHubUrl();
     }
 
     private void switchHub(CommandDriver client) {
