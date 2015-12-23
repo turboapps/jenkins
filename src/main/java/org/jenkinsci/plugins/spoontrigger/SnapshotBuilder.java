@@ -439,6 +439,7 @@ public class SnapshotBuilder extends BaseBuilder {
         private static final Validator<String> VAGRANT_BOX_VALIDATOR;
         private static final Validator<String> VIRTUAL_FILE_PATH_VALIDATOR;
         private static final Validator<String> SILENT_INSTALL_ARGS_VALIDATOR;
+        private static final Validator<String> VIRTUAL_PATHS_TO_DELETE_VALIDATOR;
 
         static {
             HOST_FILE_PATH_VALIDATOR = Validators.chain(
@@ -455,6 +456,7 @@ public class SnapshotBuilder extends BaseBuilder {
                     StringValidators.isNotNull(String.format("Empty value will be replaced by a default box from global configuration: %s", DEFAULT_VAGRANT_BOX), Level.OK),
                     StringValidators.isSingleWord(String.format(REQUIRE_SINGLE_WORD_S, "Parameter")));
             SILENT_INSTALL_ARGS_VALIDATOR = StringValidators.isNotNull(String.format(IGNORE_PARAMETER, "Parameter"), Level.OK);
+            VIRTUAL_PATHS_TO_DELETE_VALIDATOR = new VirtualPathsToDeleteValidator();
         }
 
         @Getter
@@ -523,6 +525,11 @@ public class SnapshotBuilder extends BaseBuilder {
             return Validators.validate(VIRTUAL_FILE_PATH_VALIDATOR, virtualFilePath);
         }
 
+        public FormValidation doCheckSnapshotPathsToDelete(@QueryParameter String value) {
+            String filePathsToDelete = Util.fixEmptyAndTrim(value);
+            return Validators.validate(VIRTUAL_PATHS_TO_DELETE_VALIDATOR, filePathsToDelete);
+        }
+
         public FormValidation doCheckDefaultVagrantBox(@QueryParameter String value) {
             String vagrantBox = Util.fixEmptyAndTrim(value);
             return Validators.validate(VAGRANT_DEFAULT_BOX_VALIDATOR, vagrantBox);
@@ -563,7 +570,7 @@ public class SnapshotBuilder extends BaseBuilder {
             return "Take Studio snapshot";
         }
 
-        private Collection<String> extractVirtualFilePaths(@Nullable String filePathList) {
+        private static Collection<String> extractVirtualFilePaths(@Nullable String filePathList) {
             if (filePathList == null) {
                 return Collections.emptyList();
             }
@@ -577,6 +584,24 @@ public class SnapshotBuilder extends BaseBuilder {
                 }
             }
             return filePaths;
+        }
+
+        private static class VirtualPathsToDeleteValidator implements Validator<String> {
+            @Override
+            public void validate(String value) throws ValidationException {
+                if (value == null) {
+                    return;
+                }
+
+                Collection<String> filePaths = extractVirtualFilePaths(value);
+                for (String filePath : filePaths) {
+                    if (Paths.get(filePath).isAbsolute()) {
+                        FormValidation formValidation = FormValidation.error("Absolute paths are forbidden to avid collisions with file system on host machine." +
+                                " Use Sandbox Locations like @SYSDRIVE@, @APPDATA@, @PROGRAMFILES@ or @PROGRAMFILESX86@.");
+                        throw new ValidationException(formValidation);
+                    }
+                }
+            }
         }
     }
 }
