@@ -37,6 +37,10 @@ public class VagrantEnvironment implements Closeable {
         return new EnvironmentBuilder(workingDir);
     }
 
+    public Path getSnapshotPath() {
+        return Paths.get(workingDir.toString(), OUTPUT_DIRECTORY, "Files");
+    }
+
     public Path getXapplPath() {
         return Paths.get(workingDir.toString(), OUTPUT_DIRECTORY, XAPPL_FILE);
     }

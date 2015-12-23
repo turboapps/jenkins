@@ -79,7 +79,7 @@ public class PushBuilder extends BaseBuilder {
             build.setRemoteImage(remoteImage);
         }
 
-        CommandDriver client = CommandDriver.scriptBuilder(build).launcher(launcher).listener(listener).build();
+        CommandDriver client = CommandDriver.builder(build).launcher(launcher).listener(listener).build();
         Pusher pusher = new Pusher(client);
         pusher.push(build);
         return true;

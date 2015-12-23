@@ -1,5 +1,6 @@
 package org.jenkinsci.plugins.spoontrigger;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.io.Closeables;
@@ -11,6 +12,7 @@ import hudson.model.BuildListener;
 import hudson.model.Result;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
+import hudson.util.ExceptionCatchingThreadFactory;
 import hudson.util.FormValidation;
 import lombok.Data;
 import lombok.Getter;
@@ -23,6 +25,7 @@ import org.jenkinsci.plugins.spoontrigger.scheduledtasks.ScheduledTasksApi;
 import org.jenkinsci.plugins.spoontrigger.snapshot.InstallScriptStrategy;
 import org.jenkinsci.plugins.spoontrigger.snapshot.StartupFileStrategy;
 import org.jenkinsci.plugins.spoontrigger.snapshot.XapplEditor;
+import org.jenkinsci.plugins.spoontrigger.utils.FileUtils;
 import org.jenkinsci.plugins.spoontrigger.utils.JsonOption;
 import org.jenkinsci.plugins.spoontrigger.vagrant.VagrantEnvironment;
 import org.jenkinsci.plugins.spoontrigger.validation.*;
@@ -66,6 +69,8 @@ public class SnapshotBuilder extends BaseBuilder {
     private final String xStudioPath;
     private final Optional<String> xStudioLicensePath;
     private final ArrayList<String> snapshotPathsToDelete;
+
+    @Getter
     private final boolean overwrite;
 
     @Getter
@@ -113,6 +118,10 @@ public class SnapshotBuilder extends BaseBuilder {
 
     public String getStartupFilePath() {
         return this.startupFileSettings.getStartupFilePath();
+    }
+
+    public String getSnapshotPathsToDelete() {
+        return Joiner.on(System.lineSeparator()).join(snapshotPathsToDelete);
     }
 
     @Override
@@ -227,7 +236,7 @@ public class SnapshotBuilder extends BaseBuilder {
         private void takeSnapshot() {
             try {
                 provisionVagrantVm();
-                editXappl();
+                remoteFilesFromSnapshot();
                 buildImage();
                 importImage();
             } catch (Throwable buildError) {
@@ -238,7 +247,7 @@ public class SnapshotBuilder extends BaseBuilder {
             destroyVagrantVm(false);
         }
 
-        private void editXappl() throws Exception {
+        private void remoteFilesFromSnapshot() throws Exception {
             if (snapshotPathsToDelete.isEmpty()) {
                 return;
             }
@@ -258,6 +267,26 @@ public class SnapshotBuilder extends BaseBuilder {
             }
 
             editor.save(xapplPath);
+
+            String snapshotDir = vagrantEnv.getSnapshotPath().toString();
+            for (String relativePath : snapshotPathsToDelete) {
+                Path pathToRemove = Paths.get(snapshotDir, relativePath);
+                try {
+                    File fileToRemove = pathToRemove.toFile();
+                    if (!fileToRemove.exists()) {
+                        continue;
+                    }
+
+                    if (fileToRemove.isDirectory()) {
+                        FileUtils.deleteDirectoryTree(pathToRemove);
+                    } else {
+                        Files.delete(pathToRemove);
+                    }
+                } catch (Throwable th) {
+                    String errorMsg = String.format("Failed to remove %s from snapshot", pathToRemove);
+                    throw new IllegalStateException(errorMsg, th);
+                }
+            }
         }
 
         private void buildImage() {
@@ -290,6 +319,11 @@ public class SnapshotBuilder extends BaseBuilder {
 
             ImportCommand command = commandBuilder.build();
             command.run(commandDriver);
+
+            Optional<Image> outputImage = command.getOutputImage();
+            checkState(outputImage.isPresent(), "Failed to find imported image in command output");
+
+            build.setOutputImage(outputImage.get());
         }
 
         private void provisionVagrantVm() throws IOException, InterruptedException {
@@ -513,7 +547,7 @@ public class SnapshotBuilder extends BaseBuilder {
         }
 
         public String defaultSnapshotPathsToDelete() {
-            return "@SYSDRIVE@\\tmp\\vagrant-shell.ps1" + System.lineSeparator() + "@SYSDRIVE@\\vagrant";
+            return "@SYSDRIVE@\\tmp" + System.lineSeparator() + "@SYSDRIVE@\\vagrant";
         }
 
         public String getVagrantBox() {

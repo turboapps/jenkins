@@ -67,6 +67,7 @@ public class HubApi {
         CloseableHttpClient httpclient = HttpClients.createDefault();
         try {
             HttpGet httpGet = new HttpGet(url);
+            httpGet.addHeader("Content-Type", "application/json");
             CloseableHttpResponse response = httpclient.execute(httpGet);
 
             int code = response.getStatusLine().getStatusCode();

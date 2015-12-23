@@ -1,15 +1,38 @@
 package org.jenkinsci.plugins.spoontrigger.commands.turbo;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.Iterables;
 import hudson.util.ArgumentListBuilder;
+import lombok.Getter;
+import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.commands.FilterOutputCommand;
+import org.jenkinsci.plugins.spoontrigger.hub.Image;
+
+import java.util.Collection;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.REQUIRE_PRESENT_S;
 
 public class ImportCommand extends FilterOutputCommand {
+    private static final Pattern OUTPUT_IMAGE_PATTERN = Pattern.compile("^Output\\simage:\\s+(?<image>\\S+)$");
+
+    @Getter
+    private Optional<Image> outputImage = Optional.absent();
+
     protected ImportCommand(ArgumentListBuilder argumentList) {
         super(argumentList);
+    }
+
+    @Override
+    public void run(CommandDriver client) throws IllegalStateException {
+        super.run(client);
+
+        Collection<String> images = findInOutput(OUTPUT_IMAGE_PATTERN);
+        if (!images.isEmpty()) {
+            String outputImageName = Iterables.getLast(images);
+            outputImage = Optional.of(Image.parse(outputImageName));
+        }
     }
 
     public static CommandBuilder builder() {

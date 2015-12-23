@@ -60,7 +60,7 @@ public class LoginBuilder extends BaseBuilder {
 
     @Override
     protected boolean perform(SpoonBuild build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
-        CommandDriver client = CommandDriver.scriptBuilder(build).launcher(launcher).listener(listener).ignoreErrorCode(false).build();
+        CommandDriver client = CommandDriver.builder(build).launcher(launcher).listener(listener).ignoreErrorCode(false).build();
 
         switchHub(client);
 
