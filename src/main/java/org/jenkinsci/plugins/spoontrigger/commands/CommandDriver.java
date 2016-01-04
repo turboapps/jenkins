@@ -1,4 +1,4 @@
-package org.jenkinsci.plugins.spoontrigger.client;
+package org.jenkinsci.plugins.spoontrigger.commands;
 
 import hudson.EnvVars;
 import hudson.FilePath;
@@ -14,10 +14,11 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.charset.Charset;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.REQUIRE_PRESENT_S;
 
-public final class SpoonClient {
+public final class CommandDriver {
 
     private static final int NO_ERROR = 0;
 
@@ -30,12 +31,24 @@ public final class SpoonClient {
     @Getter(AccessLevel.PACKAGE)
     private Charset charset;
 
-    public static ClientBuilder builder() {
-        return new ClientBuilder();
+    public static DriverBuilder builder() {
+        return new DriverBuilder();
     }
 
-    public static ClientBuilder builder(SpoonBuild build) {
-        return new ClientBuilder()
+    public static DriverBuilder builder(SpoonBuild build) {
+        return new DriverBuilder()
+                .charset(build.getCharset())
+                .env(build.getEnv().get())
+                .pwd(build.getWorkspace());
+    }
+
+    /**
+     * Used to create DriverBuilder for building images using scripts
+     */
+    public static DriverBuilder scriptBuilder(SpoonBuild build) {
+        checkArgument(build.getScript().isPresent(), "script is not defined");
+
+        return new DriverBuilder()
                 .charset(build.getCharset())
                 .env(build.getEnv().get())
                 .pwd(build.getScript().get().getParent());
@@ -76,45 +89,45 @@ public final class SpoonClient {
         return this.launcher.launch().pwd(this.pwd).envs(this.env);
     }
 
-    public static class ClientBuilder {
+    public static class DriverBuilder {
 
-        private final SpoonClient client;
+        private final CommandDriver client;
 
-        ClientBuilder() {
-            this.client = new SpoonClient();
+        DriverBuilder() {
+            this.client = new CommandDriver();
         }
 
-        public ClientBuilder env(EnvVars environment) {
+        public DriverBuilder env(EnvVars environment) {
             this.client.env = environment;
             return this;
         }
 
-        public ClientBuilder pwd(FilePath filePath) {
+        public DriverBuilder pwd(FilePath filePath) {
             this.client.pwd = filePath;
             return this;
         }
 
-        public ClientBuilder listener(TaskListener listener) {
+        public DriverBuilder listener(TaskListener listener) {
             this.client.listener = listener;
             return this;
         }
 
-        public ClientBuilder launcher(Launcher launcher) {
+        public DriverBuilder launcher(Launcher launcher) {
             this.client.launcher = launcher;
             return this;
         }
 
-        public ClientBuilder charset(Charset charset) {
+        public DriverBuilder charset(Charset charset) {
             this.client.charset = charset;
             return this;
         }
 
-        public ClientBuilder ignoreErrorCode(boolean ignoreErrorCode) {
+        public DriverBuilder ignoreErrorCode(boolean ignoreErrorCode) {
             this.client.ignoreErrorCode = ignoreErrorCode;
             return this;
         }
 
-        public SpoonClient build() {
+        public CommandDriver build() {
             checkState(this.client.env != null, REQUIRE_PRESENT_S, "env");
             checkState(this.client.pwd != null, REQUIRE_PRESENT_S, "pwd");
             checkState(this.client.launcher != null, REQUIRE_PRESENT_S, "launcher");

@@ -13,8 +13,8 @@ import hudson.util.FormValidation;
 import lombok.Getter;
 import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
-import org.jenkinsci.plugins.spoontrigger.client.PushCommand;
-import org.jenkinsci.plugins.spoontrigger.client.SpoonClient;
+import org.jenkinsci.plugins.spoontrigger.commands.turbo.PushCommand;
+import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.push.PushConfig;
 import org.jenkinsci.plugins.spoontrigger.push.RemoteImageNameStrategy;
@@ -69,7 +69,7 @@ public class PushPublisher extends SpoonBasePublisher {
     @Override
     public void publish(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) throws IllegalStateException {
         SpoonBuild build = (SpoonBuild) abstractBuild;
-        SpoonClient client = super.createClient(build, launcher, listener);
+        CommandDriver client = super.createClient(build, launcher, listener);
         PushCommand pushCmd = this.createPushCommand(build);
         pushCmd.run(client);
     }

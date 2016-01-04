@@ -1,0 +1,32 @@
+# Vagrantfile
+
+VAGRANTFILE_API_VERSION = "2"
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  config.vm.provider :virtualbox do |v|
+    v.gui = true
+    v.memory = 2048
+  end
+  config.vm.box = "$t.box$"
+  config.vm.communicator = :winrm
+  config.vm.guest = :windows
+  config.vm.network :forwarded_port, host: 33389, guest: 3389, id: "rdp", auto_correct: true
+
+  # XStudio and license file are saved in Vagrant working directory that is synced automatically with guest machine
+  # Automate snapshot using shell provisioner and xstudio
+  config.vm.provision :shell do |s|
+     s.name = "Taking before snapshot"
+     s.inline = "$t.beforeSnapshotCommand$"
+  end
+
+  config.vm.provision :shell do |s|
+    s.name = "Installing application"
+    s.privileged = true
+    s.path = "$t.installCommand$"
+  end
+
+  config.vm.provision :shell do |s|
+     s.name = "Taking after snapshot"
+     s.inline = "$t.afterSnapshotCommand$"
+  end
+end

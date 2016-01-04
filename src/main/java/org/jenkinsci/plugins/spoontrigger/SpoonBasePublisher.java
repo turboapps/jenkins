@@ -9,7 +9,7 @@ import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Publisher;
 import lombok.AccessLevel;
 import lombok.Getter;
-import org.jenkinsci.plugins.spoontrigger.client.SpoonClient;
+import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.utils.TaskListeners;
 
@@ -60,8 +60,6 @@ abstract class SpoonBasePublisher extends Publisher {
             SpoonBuild build = (SpoonBuild) abstractBuild;
             this.beforePublish(build, listener);
             this.publish(build, launcher, listener);
-
-
             return true;
         } catch (IllegalStateException ex) {
             TaskListeners.logFatalError(listener, ex);
@@ -69,8 +67,8 @@ abstract class SpoonBasePublisher extends Publisher {
         }
     }
 
-    SpoonClient createClient(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) {
+    CommandDriver createClient(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) {
         SpoonBuild build = (SpoonBuild) abstractBuild;
-        return SpoonClient.builder(build).launcher(launcher).listener(listener).build();
+        return CommandDriver.scriptBuilder(build).launcher(launcher).listener(listener).build();
     }
 }

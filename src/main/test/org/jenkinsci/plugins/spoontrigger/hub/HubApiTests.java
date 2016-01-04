@@ -25,7 +25,7 @@ public class HubApiTests {
         this.image = Image.parse(imageName);
         this.shouldExist = shouldExist;
 
-        this.hubApi = new HubApi(new BuildListenerAdapter(TaskListener.NULL));
+        this.hubApi = new HubApi("https://turbo.net", new BuildListenerAdapter(TaskListener.NULL));
     }
 
     @Parameterized.Parameters

@@ -4,7 +4,6 @@ import com.google.common.reflect.TypeToken;
 import hudson.Extension;
 import hudson.Launcher;
 import hudson.Util;
-import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
 import hudson.model.Result;
@@ -14,13 +13,11 @@ import hudson.util.FormValidation;
 import lombok.Getter;
 import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
-import org.jenkinsci.plugins.spoontrigger.client.SpoonClient;
-import org.jenkinsci.plugins.spoontrigger.hub.HubApi;
+import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.push.PushConfig;
 import org.jenkinsci.plugins.spoontrigger.push.Pusher;
 import org.jenkinsci.plugins.spoontrigger.push.RemoteImageNameStrategy;
-import org.jenkinsci.plugins.spoontrigger.utils.TaskListeners;
 import org.jenkinsci.plugins.spoontrigger.validation.Level;
 import org.jenkinsci.plugins.spoontrigger.validation.StringValidators;
 import org.jenkinsci.plugins.spoontrigger.validation.Validator;
@@ -32,12 +29,10 @@ import org.kohsuke.stapler.StaplerRequest;
 import javax.annotation.Nullable;
 import java.io.IOException;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
-import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
 
-public class PushBuilder extends Builder {
+public class PushBuilder extends BaseBuilder {
     @Nullable
     @Getter
     private final String remoteImageName;
@@ -55,8 +50,6 @@ public class PushBuilder extends Builder {
     @Getter
     private final boolean overwriteOrganization;
 
-    private transient PushConfig pushConfig;
-
     @DataBoundConstructor
     public PushBuilder(@Nullable RemoteImageNameStrategy remoteImageStrategy,
                        @Nullable String organization, boolean overwriteOrganization,
@@ -70,39 +63,26 @@ public class PushBuilder extends Builder {
     }
 
     @Override
-    public boolean prebuild(AbstractBuild<?, ?> abstractBuild, BuildListener listener) {
-        checkArgument(abstractBuild instanceof SpoonBuild, requireInstanceOf("build", SpoonBuild.class));
+    public boolean perform(SpoonBuild build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
+        Image localImage = build.getOutputImage().orNull();
+        checkState(localImage != null, REQUIRE_OUTPUT_IMAGE);
 
-        return true;
-    }
+        PushConfig pushConfig = cratePushConfig(localImage);
 
-    @Override
-    public boolean perform(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
-        try {
-            SpoonBuild build = (SpoonBuild) abstractBuild;
-            Image localImage = build.getOutputImage().orNull();
-            checkState(localImage != null, REQUIRE_OUTPUT_IMAGE);
-
-            PushConfig pushConfig = cratePushConfig(localImage);
-
-            Image remoteImage = remoteImageStrategy.getRemoteImage(pushConfig, build);
-            if (shouldAbort(remoteImage, build, listener)) {
-                build.setResult(Result.ABORTED);
-                return false;
-            }
-
-            if (!localImage.equals(remoteImage)) {
-                build.setRemoteImage(remoteImage);
-            }
-
-            SpoonClient client = SpoonClient.builder(build).launcher(launcher).listener(listener).build();
-            Pusher pusher = new Pusher(client);
-            pusher.push(build);
-            return true;
-        } catch (IllegalStateException ex) {
-            TaskListeners.logFatalError(listener, ex);
+        Image remoteImage = remoteImageStrategy.getRemoteImage(pushConfig, build);
+        if (shouldAbort(remoteImage, build, listener)) {
+            build.setResult(Result.ABORTED);
             return false;
         }
+
+        if (!localImage.equals(remoteImage)) {
+            build.setRemoteImage(remoteImage);
+        }
+
+        CommandDriver client = CommandDriver.builder(build).launcher(launcher).listener(listener).build();
+        Pusher pusher = new Pusher(client);
+        pusher.push(build);
+        return true;
     }
 
     private boolean shouldAbort(Image remoteImage, SpoonBuild build, BuildListener listener) {
@@ -115,32 +95,7 @@ public class PushBuilder extends Builder {
             return false;
         }
 
-        if (remoteImage.getNamespace() == null) {
-            String msg = "Check if image " + remoteImage.printIdentifier() + " is available remotely is skipped," +
-                    " because the image name does not specify namespace and it can't be extracted" +
-                    " from Jenkins credentials";
-            log(listener, msg);
-
-            return false;
-        }
-
-        HubApi hubApi = new HubApi(listener);
-        try {
-            boolean result = hubApi.isAvailableRemotely(remoteImage);
-
-            if (result) {
-                String msg = String.format("Image %s is available remotely", remoteImage.printIdentifier());
-                log(listener, msg);
-            }
-
-            return result;
-        } catch (Exception ex) {
-            String msg = String.format("Failed to check if image %s is available remotely: %s",
-                    remoteImage.printIdentifier(),
-                    ex.getMessage());
-            log(listener, msg, ex);
-            return false;
-        }
+        return isAvailableRemotely(remoteImage, listener);
     }
 
     private PushConfig cratePushConfig(Image localImage) {

@@ -9,15 +9,18 @@ import hudson.model.Build;
 import hudson.model.BuildListener;
 import lombok.Getter;
 import lombok.Setter;
-import org.jenkinsci.plugins.spoontrigger.client.ConfigCommand;
+import org.jenkinsci.plugins.spoontrigger.commands.turbo.ConfigCommand;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.utils.LogUtils;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Date;
+import java.util.regex.Pattern;
 
 public class SpoonBuild extends Build<SpoonProject, SpoonBuild> {
+
+    private static final Pattern INVALID_CHARACTERS_PATTERN = Pattern.compile("\\W+");
 
     @Getter
     @Setter
@@ -83,6 +86,10 @@ public class SpoonBuild extends Build<SpoonProject, SpoonBuild> {
             return Optional.of(outputImage.get().printIdentifier());
         }
         return Optional.absent();
+    }
+
+    public String getSanitizedProjectName() {
+        return INVALID_CHARACTERS_PATTERN.matcher(getProject().getName()).replaceAll("");
     }
 
     void setCredentials(StandardUsernamePasswordCredentials credentials) {

@@ -1,9 +1,11 @@
-package org.jenkinsci.plugins.spoontrigger.client;
+package org.jenkinsci.plugins.spoontrigger.commands.turbo;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import hudson.util.ArgumentListBuilder;
 import lombok.Getter;
+import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
+import org.jenkinsci.plugins.spoontrigger.commands.FilterOutputCommand;
 
 import java.util.Collection;
 import java.util.regex.Pattern;
@@ -20,7 +22,7 @@ public class ConfigCommand extends FilterOutputCommand {
     }
 
     @Override
-    public void run(SpoonClient client) throws IllegalStateException {
+    public void run(CommandDriver client) throws IllegalStateException {
         super.run(client);
 
         Collection<String> patterns = findInOutput(HUB_URL_PATTERN);

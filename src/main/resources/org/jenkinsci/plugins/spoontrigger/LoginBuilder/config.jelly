@@ -1,0 +1,12 @@
+<?jelly escape-by-default='true'?>
+<j:jelly
+        xmlns:j="jelly:core"
+        xmlns:f="/lib/form"
+        xmlns:c="/lib/credentials">
+    <f:entry title="Credentials" field="credentialsId">
+        <c:select checkUrl="'descriptorByName/LoginBuilder/checkCredentialsId?value='+escape(this.value)"/>
+    </f:entry>
+    <f:entry title="Hub" field="hubUrl">
+        <f:textbox checkUrl="'descriptorByName/LoginBuilder/checkHubUrl?value='+escape(this.value)"/>
+    </f:entry>
+</j:jelly>

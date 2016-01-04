@@ -17,16 +17,16 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 
-import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
 import static com.google.common.base.Preconditions.checkArgument;
+import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
 
 public class HubApi {
 
-    private static final String BaseHubUrl = "turbo.net";
-
+    private final String hubUrl;
     private final BuildListener listener;
 
-    public HubApi(BuildListener listener) {
+    public HubApi(String hubUrl, BuildListener listener) {
+        this.hubUrl = hubUrl;
         this.listener = listener;
     }
 
@@ -67,6 +67,7 @@ public class HubApi {
         CloseableHttpClient httpclient = HttpClients.createDefault();
         try {
             HttpGet httpGet = new HttpGet(url);
+            httpGet.addHeader("Content-Type", "application/json");
             CloseableHttpResponse response = httpclient.execute(httpGet);
 
             int code = response.getStatusLine().getStatusCode();
@@ -87,9 +88,7 @@ public class HubApi {
     }
 
     private URI getRepoUrl(Image image) throws URISyntaxException {
-        URIBuilder builder = new URIBuilder()
-                .setScheme("http")
-                .setHost(BaseHubUrl)
+        URIBuilder builder = new URIBuilder(hubUrl)
                 .setPath("/io/_hub/repo/" + image.getNamespace() + "/" + image.getRepo());
         return builder.build();
     }

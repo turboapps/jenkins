@@ -8,8 +8,8 @@ import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Publisher;
-import org.jenkinsci.plugins.spoontrigger.client.RemoveImageCommand;
-import org.jenkinsci.plugins.spoontrigger.client.SpoonClient;
+import org.jenkinsci.plugins.spoontrigger.commands.turbo.RemoveImageCommand;
+import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.kohsuke.stapler.DataBoundConstructor;
 
 public class RemoveImagePublisher extends SpoonBasePublisher {
@@ -19,7 +19,7 @@ public class RemoveImagePublisher extends SpoonBasePublisher {
 
     @Override
     public void publish(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) throws IllegalStateException {
-        SpoonClient client = super.createClient(abstractBuild, launcher, listener);
+        CommandDriver client = super.createClient(abstractBuild, launcher, listener);
         RemoveImageCommand removeImageCmd = this.createRemoveImageCommand();
         removeImageCmd.run(client);
     }

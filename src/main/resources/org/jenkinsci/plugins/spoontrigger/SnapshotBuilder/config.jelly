@@ -1,0 +1,47 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:f="/lib/form">
+    <f:entry title="Vagrant Box" field="vagrantBox">
+        <f:textbox
+            default="${descriptor.getVagrantBox()}"
+            checkUrl="'descriptorByName/SnapshotBuilder/checkVagrantBox?value='+escape(this.value)"/>
+    </f:entry>
+    <f:entry title="Installation script">
+        <f:radioBlock name="installScriptStrategy" title="Generate using template" value='TEMPLATE'
+            checked="${instance.installScriptStrategy eq 'TEMPLATE' or empty instance.installScriptStrategy}">
+            <f:entry title="Silent install arguments" field="silentInstallArgs">
+                <f:textbox
+                    default="${descriptor.defaultSilentInstallArgs()}"
+                    checkUrl="'descriptorByName/SnapshotBuilder/checkSilentInstallArgs?value='+escape(this.value)"/>
+            </f:entry>
+            <f:entry title="Ignore exit code" field="ignoreExitCode">
+                <f:checkbox default="false"/>
+            </f:entry>
+        </f:radioBlock>
+        <f:radioBlock name="installScriptStrategy" title="Fixed" value='FIXED'
+            checked="${instance.installScriptStrategy eq 'FIXED'}">
+            <f:entry title="Path" field="installScriptPath">
+                <f:textbox
+                    checkUrl="'descriptorByName/SnapshotBuilder/checkHostFilePath?value='+escape(this.value)"/>
+            </f:entry>
+        </f:radioBlock>
+    </f:entry>
+    <f:entry title="Startup file">
+        <f:radioBlock name="startupFileStrategy" title="Select automatically" value='STUDIO'
+            checked="${instance.startupFileStrategy eq 'STUDIO' or empty instance.startupFileStrategy}"/>
+        <f:radioBlock name="startupFileStrategy" title="Fixed" value='FIXED'
+            checked="${instance.startupFileStrategy eq 'FIXED'}">
+            <f:entry title="Path" field="startupFilePath">
+                <f:textbox
+                    checkUrl="'descriptorByName/SnapshotBuilder/checkVirtualFilePath?value='+escape(this.value)"/>
+            </f:entry>
+        </f:radioBlock>
+    </f:entry>
+    <f:entry title="Overwrite" field="overwrite">
+        <f:checkbox/>
+    </f:entry>
+    <f:advanced>
+        <f:entry title="Files to delete from snapshot" field="snapshotPathsToDelete">
+            <f:textarea default="${descriptor.defaultSnapshotPathsToDelete()}"/>
+        </f:entry>
+    </f:advanced>
+</j:jelly>

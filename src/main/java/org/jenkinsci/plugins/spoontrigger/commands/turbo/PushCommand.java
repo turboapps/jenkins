@@ -1,7 +1,8 @@
-package org.jenkinsci.plugins.spoontrigger.client;
+package org.jenkinsci.plugins.spoontrigger.commands.turbo;
 
 import com.google.common.base.Optional;
 import hudson.util.ArgumentListBuilder;
+import org.jenkinsci.plugins.spoontrigger.commands.FilterOutputCommand;
 import org.jenkinsci.plugins.spoontrigger.utils.Patterns;
 
 import static com.google.common.base.Preconditions.checkArgument;
