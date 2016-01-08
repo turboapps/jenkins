@@ -14,6 +14,8 @@ import static org.jenkinsci.plugins.spoontrigger.vagrant.VagrantEnvironment.*;
 
 public class VagrantEnvironmentTests {
 
+    private static final String INSTALLER_EXE_FILE = "install.exe";
+
     @Rule
     public TemporaryFolder workingDir = new TemporaryFolder();
 

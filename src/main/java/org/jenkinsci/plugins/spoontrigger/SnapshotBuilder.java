@@ -180,11 +180,36 @@ public class SnapshotBuilder extends BaseBuilder {
         VagrantEnvironment.EnvironmentBuilder environmentBuilder = VagrantEnvironment.builder(workingDir)
                 .box(vagrantBox)
                 .xStudioPath(xStudioPath)
-                .installerPath(Paths.get(buildWorkspace, VagrantEnvironment.INSTALLER_EXE_FILE).toString());
+                .installerPath(getInstallerPath(buildWorkspace));
 
         installScriptSettings.configure(environmentBuilder);
 
         return environmentBuilder.build();
+    }
+
+    private String getInstallerPath(String buildWorkspace) {
+        File workspace = new File(buildWorkspace);
+        File[] workspaceFiles = workspace.listFiles();
+        checkState(workspaceFiles != null, "Failed to list files in %s directory", buildWorkspace);
+
+        File installerFile = null;
+        for (File workspaceFile : workspaceFiles) {
+            final String extension = FileUtils.getExtension(workspaceFile.toPath());
+            if ("exe".equals(extension) || "msi".equals(extension)) {
+                if (installerFile != null) {
+                    throw new IllegalStateException(
+                            String.format("Workspace %s contains too many application installers: [%s,%s]",
+                                    workspace,
+                                    installerFile.getAbsolutePath(),
+                                    workspaceFile.getAbsoluteFile()));
+                }
+                installerFile = workspaceFile;
+            }
+        }
+
+        checkState(installerFile != null, "Workspace %s does not contain application installer", buildWorkspace);
+
+        return installerFile.getAbsolutePath();
     }
 
     private Optional<Image> loadImportImageName(String workspacePath) throws IOException {

@@ -53,6 +53,15 @@ public class ModelBuilder extends BaseBuilder {
         this.pushGuardSettings = pushGuardSettings;
     }
 
+    public String getMinBufferSizeMB() {
+        if (pushGuardSettings == null) {
+            return null;
+        }
+
+        Double minBufferSizeMB = this.pushGuardSettings.getMinBufferSizeMB().orNull();
+        return minBufferSizeMB != null ? minBufferSizeMB.toString() : null;
+    }
+
     @Override
     public boolean perform(SpoonBuild build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
         Image outputImage = build.getOutputImage().orNull();

@@ -2,6 +2,7 @@ package org.jenkinsci.plugins.spoontrigger.vagrant;
 
 import com.google.common.base.Optional;
 import lombok.Getter;
+import org.jenkinsci.plugins.spoontrigger.utils.FileUtils;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -15,7 +16,6 @@ import static org.jenkinsci.plugins.spoontrigger.utils.FileUtils.quietDeleteDire
 public class VagrantEnvironment implements Closeable {
     public static final String TOOLS_DIRECTORY = "tools";
     public static final String INSTALL_DIRECTORY = "install";
-    public static final String INSTALLER_EXE_FILE = "install.exe";
     public static final String OUTPUT_DIRECTORY = "output";
     public static final String XAPPL_FILE = "snapshot.xappl";
     public static final String XSTUDIO_EXE_FILE = "xstudio.exe";
@@ -23,7 +23,7 @@ public class VagrantEnvironment implements Closeable {
     public static final String IMAGE_SVM_FILE = "image.svm";
     public static final String VAGRANT_FILE = "Vagrantfile";
     public static final String INSTALL_SCRIPT_FILE = "install.ps1";
-    public static final String INSTALLER_PATH_ON_GUEST_MACHINE = "C:\\vagrant\\install\\install.exe";
+    public static final String INSTALLER_DIRECTORY_ON_GUEST_MACHINE = "C:\\vagrant\\install";
 
 
     @Getter
@@ -125,11 +125,10 @@ public class VagrantEnvironment implements Closeable {
 
             createDirectoryIfNotExist(installDir);
 
-            if (installerPath.isPresent()) {
-                Path installerSourcePath = Paths.get(installerPath.get());
-                Path installerDestPath = Paths.get(workingDir.toString(), INSTALL_DIRECTORY, INSTALLER_EXE_FILE);
-                copyFile(installerSourcePath, installerDestPath);
-            }
+            Path installerSourcePath = Paths.get(installerPath.get());
+            String installerFileName = installerSourcePath.getFileName().toString();
+            Path installerDestPath = Paths.get(workingDir.toString(), INSTALL_DIRECTORY, installerFileName);
+            copyFile(installerSourcePath, installerDestPath);
 
             if (installScriptPath.isPresent()) {
                 Path installScriptSourcePath = Paths.get(installScriptPath.get());
@@ -141,17 +140,11 @@ public class VagrantEnvironment implements Closeable {
             }
 
             if (installerArgs.isPresent()) {
-                ArrayList<String> scriptContent = new ArrayList<String>(2);
-                scriptContent.add("& " + INSTALLER_PATH_ON_GUEST_MACHINE + " " + installerArgs.get() + " | Write-Host");
-                if (ignoreExitCode) {
-                    scriptContent.add("exit 0");
-                }
-
                 Path installerScriptPath = Paths.get(installDir.toString(), INSTALL_SCRIPT_FILE);
                 try {
                     Files.write(
                             installerScriptPath,
-                            scriptContent,
+                            generateScriptContent(installerDestPath),
                             Charset.defaultCharset(),
                             StandardOpenOption.CREATE,
                             StandardOpenOption.TRUNCATE_EXISTING,
@@ -164,6 +157,27 @@ public class VagrantEnvironment implements Closeable {
             }
 
             throw new IllegalStateException("Failed to create installer script");
+        }
+
+        private ArrayList<String> generateScriptContent(Path installerFile) {
+            ArrayList<String> scriptContent = new ArrayList<String>(2);
+            StringBuilder commandBuilder = new StringBuilder("& ");
+
+            if ("msi".equals(FileUtils.getExtension(installerFile))) {
+                commandBuilder.append("msiexec ");
+            }
+
+            commandBuilder.append(Paths.get(INSTALLER_DIRECTORY_ON_GUEST_MACHINE, installerFile.getFileName().toString()));
+            commandBuilder.append(" ");
+            commandBuilder.append(installerArgs.get());
+            commandBuilder.append(" | Write-Host");
+
+            scriptContent.add(commandBuilder.toString());
+            if (ignoreExitCode) {
+                scriptContent.add("exit 0");
+            }
+
+            return scriptContent;
         }
 
         private void setupWorkingDirectory(String vagrantBox, String installScriptName) {
