@@ -53,7 +53,7 @@ public class ModelBuilder extends BaseBuilder {
         this.pushGuardSettings = pushGuardSettings;
     }
 
-    public String getMinBufferSizeMB() {
+    public String getMinBufferSize() {
         if (pushGuardSettings == null) {
             return null;
         }
