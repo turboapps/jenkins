@@ -28,6 +28,8 @@ import org.kohsuke.stapler.StaplerRequest;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
@@ -49,12 +51,15 @@ public class PushBuilder extends BaseBuilder {
     private final boolean appendDate;
     @Getter
     private final boolean overwriteOrganization;
+    @Getter
+    private final String hubUrls;
 
     @DataBoundConstructor
-    public PushBuilder(@Nullable RemoteImageNameStrategy remoteImageStrategy,
+    public PushBuilder(@Nullable RemoteImageNameStrategy remoteImageStrategy, @Nullable String hubUrls,
                        @Nullable String organization, boolean overwriteOrganization,
                        @Nullable String remoteImageName, @Nullable String dateFormat, boolean appendDate) {
         this.remoteImageStrategy = (remoteImageStrategy == null) ? RemoteImageNameStrategy.DO_NOT_USE : remoteImageStrategy;
+        this.hubUrls = Util.fixEmptyAndTrim(hubUrls);
         this.organization = Util.fixEmptyAndTrim(organization);
         this.overwriteOrganization = overwriteOrganization;
         this.remoteImageName = Util.fixEmptyAndTrim(remoteImageName);
@@ -80,9 +85,33 @@ public class PushBuilder extends BaseBuilder {
         }
 
         CommandDriver client = CommandDriver.builder(build).launcher(launcher).listener(listener).build();
-        Pusher pusher = new Pusher(client);
-        pusher.push(build);
+
+        if(this.hubUrls != null) {
+            // if multiple hubs specified, push to each one of them
+            for(String hubUrl : hubUrlsAsList()) {
+                switchHub(client, hubUrl);
+
+                Pusher pusher = new Pusher(client);
+                pusher.push(build);
+            }
+        } else {
+            // push without changing current hub
+            Pusher pusher = new Pusher(client);
+            pusher.push(build);
+        }
+
+
         return true;
+    }
+
+    private List<String> hubUrlsAsList() {
+        List<String> result = new ArrayList<String>();
+        if(this.hubUrls != null) {
+            for(String url: this.hubUrls.split(",")) {
+                result.add(url.trim());
+            }
+        }
+        return result;
     }
 
     private boolean shouldAbort(Image remoteImage, SpoonBuild build, BuildListener listener) {
@@ -105,7 +134,8 @@ public class PushBuilder extends BaseBuilder {
                 dateFormat,
                 appendDate,
                 organization,
-                overwriteOrganization);
+                overwriteOrganization,
+                hubUrls);
     }
 
     @Extension
@@ -114,6 +144,7 @@ public class PushBuilder extends BaseBuilder {
         private static final Validator<String> REMOTE_IMAGE_NAME_VALIDATOR;
         private static final Validator<String> ORGANIZATION_VALIDATOR;
         private static final Validator<String> DATE_FORMAT_VALIDATOR;
+        private static final Validator<String> HUB_URLS_VALIDATOR;
 
         static {
             REMOTE_IMAGE_NAME_VALIDATOR = Validators.chain(
@@ -128,6 +159,9 @@ public class PushBuilder extends BaseBuilder {
                     StringValidators.isNotNull(IGNORE_PARAMETER, Level.OK),
                     StringValidators.isSingleWord(String.format(REQUIRE_SINGLE_WORD_S, "Date format")),
                     StringValidators.isDateFormat(INVALID_DATE_FORMAT));
+
+            HUB_URLS_VALIDATOR = Validators.chain(
+                    StringValidators.isNotNull(IGNORE_PARAMETER, Level.OK));
         }
 
         private static String getKeyOrDefault(JSONObject json, String key) {
@@ -145,6 +179,7 @@ public class PushBuilder extends BaseBuilder {
 
                 RemoteImageNameStrategy remoteImageStrategy = RemoteImageNameStrategy.DO_NOT_USE;
                 String remoteImageName = null;
+                String hubUrls = null;
                 String dateFormat = null;
                 boolean appendDate = false;
                 String organization = null;
@@ -153,6 +188,7 @@ public class PushBuilder extends BaseBuilder {
                 if (pushJSON != null && !pushJSON.isNullObject()) {
                     String remoteImageStrategyName = pushJSON.getString("value");
                     remoteImageStrategy = RemoteImageNameStrategy.valueOf(remoteImageStrategyName);
+                    hubUrls = getKeyOrDefault(formData, "hubUrls");
                     organization = getKeyOrDefault(pushJSON, "organization");
                     overwriteOrganization = getBoolOrDefault(pushJSON, "overwriteOrganization");
                     remoteImageName = getKeyOrDefault(pushJSON, "remoteImageName");
@@ -160,7 +196,7 @@ public class PushBuilder extends BaseBuilder {
                     appendDate = getBoolOrDefault(pushJSON, "appendDate");
                 }
 
-                return new PushBuilder(remoteImageStrategy, organization, overwriteOrganization, remoteImageName, dateFormat, appendDate);
+                return new PushBuilder(remoteImageStrategy, hubUrls, organization, overwriteOrganization, remoteImageName, dateFormat, appendDate);
             } catch (JSONException ex) {
                 throw new IllegalStateException("Error while parsing data form", ex);
             }
@@ -174,6 +210,11 @@ public class PushBuilder extends BaseBuilder {
         public FormValidation doCheckRemoteImageName(@QueryParameter String value) {
             String imageName = Util.fixEmptyAndTrim(value);
             return Validators.validate(REMOTE_IMAGE_NAME_VALIDATOR, imageName);
+        }
+
+        public FormValidation doCheckHubUrls(@QueryParameter String value) {
+            String hubUrls = Util.fixEmptyAndTrim(value);
+            return Validators.validate(HUB_URLS_VALIDATOR, hubUrls);
         }
 
         public FormValidation doCheckDateFormat(@QueryParameter String value) {

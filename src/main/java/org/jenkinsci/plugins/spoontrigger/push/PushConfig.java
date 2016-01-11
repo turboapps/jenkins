@@ -13,4 +13,5 @@ public class PushConfig {
     private boolean appendDate;
     private String organization;
     private boolean overwriteOrganization;
+    private String hubUrls;
 }
