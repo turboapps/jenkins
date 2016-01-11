@@ -69,6 +69,6 @@ abstract class SpoonBasePublisher extends Publisher {
 
     CommandDriver createClient(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) {
         SpoonBuild build = (SpoonBuild) abstractBuild;
-        return CommandDriver.scriptBuilder(build).launcher(launcher).listener(listener).build();
+        return CommandDriver.builder(build).launcher(launcher).listener(listener).build();
     }
 }
