@@ -164,7 +164,7 @@ public class VagrantEnvironment implements Closeable {
             StringBuilder commandBuilder = new StringBuilder("& ");
 
             if ("msi".equals(FileUtils.getExtension(installerFile))) {
-                commandBuilder.append("msiexec ");
+                commandBuilder.append("msiexec /i ");
             }
 
             commandBuilder.append(Paths.get(INSTALLER_DIRECTORY_ON_GUEST_MACHINE, installerFile.getFileName().toString()));
