@@ -4,7 +4,6 @@ import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
 import com.google.common.io.Resources;
 import hudson.util.ArgumentListBuilder;
-import lombok.Getter;
 import org.stringtemplate.v4.ST;
 import org.stringtemplate.v4.misc.ErrorBuffer;
 import org.stringtemplate.v4.misc.STMessage;
@@ -26,8 +25,6 @@ public class VagrantFileTemplate {
     private static final String SNAPSHOT_PATH = OUTPUT_DIR + "\\snapshot";
 
     private final String installScriptFileName;
-
-    @Getter
     private final String box;
 
     public VagrantFileTemplate(String installScriptFileName, String box) {
@@ -56,6 +53,10 @@ public class VagrantFileTemplate {
 
             throw new IllegalStateException(msgBuilder.toString());
         }
+    }
+
+    public String getBox() {
+        return this.box;
     }
 
     public String getBeforeSnapshotCommand() {

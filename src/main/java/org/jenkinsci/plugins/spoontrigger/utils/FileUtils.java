@@ -1,5 +1,7 @@
 package org.jenkinsci.plugins.spoontrigger.utils;
 
+import org.apache.http.util.TextUtils;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
@@ -7,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Locale;
 
 public final class FileUtils {
 
@@ -27,6 +30,14 @@ public final class FileUtils {
                 quietDeleteFile(child.toPath());
             }
         }
+    }
+
+    public static String getExtension(Path file) {
+        final String extension = com.google.common.io.Files.getFileExtension(file.toString());
+        if (TextUtils.isEmpty(extension)) {
+            return "";
+        }
+        return extension.toLowerCase(Locale.ROOT);
     }
 
     public static void quietDeleteFileIfExist(Path file) {
