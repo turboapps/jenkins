@@ -54,6 +54,8 @@ public class PushPublisher extends SpoonBasePublisher {
     @Getter
     private final boolean overwriteOrganization;
 
+    private static final String NO_HUB_URLS_DEFINED = null;
+
     @DataBoundConstructor
     public PushPublisher(@Nullable RemoteImageNameStrategy remoteImageStrategy,
                          @Nullable String organization, boolean overwriteOrganization,
@@ -94,7 +96,8 @@ public class PushPublisher extends SpoonBasePublisher {
                 dateFormat,
                 appendDate,
                 organization,
-                overwriteOrganization);
+                overwriteOrganization,
+                NO_HUB_URLS_DEFINED);
     }
 
     @Extension

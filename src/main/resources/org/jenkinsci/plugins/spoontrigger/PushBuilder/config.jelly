@@ -35,4 +35,7 @@
             </f:advanced>
         </f:radioBlock>
     </f:entry>
+    <f:entry title="Hub(s)" field="hubUrls">
+        <f:textbox checkUrl="'descriptorByName/PushBuilder/checkHubUrls?value='+escape(this.value)"/>
+    </f:entry>
 </j:jelly>

@@ -5,6 +5,10 @@ import hudson.util.ArgumentListBuilder;
 import org.jenkinsci.plugins.spoontrigger.commands.FilterOutputCommand;
 import org.jenkinsci.plugins.spoontrigger.utils.Patterns;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.REQUIRE_PRESENT_S;

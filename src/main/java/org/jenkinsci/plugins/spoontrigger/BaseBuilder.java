@@ -1,10 +1,13 @@
 package org.jenkinsci.plugins.spoontrigger;
 
+import com.google.common.base.Strings;
 import hudson.EnvVars;
 import hudson.Launcher;
 import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
 import hudson.tasks.Builder;
+import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
+import org.jenkinsci.plugins.spoontrigger.commands.turbo.ConfigCommand;
 import org.jenkinsci.plugins.spoontrigger.hub.HubApi;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.utils.TaskListeners;
@@ -18,6 +21,8 @@ import static org.jenkinsci.plugins.spoontrigger.Messages.requireInstanceOf;
 import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
 
 public abstract class BaseBuilder extends Builder {
+
+    private transient String hubUrl;
 
     @Override
     public boolean prebuild(AbstractBuild<?, ?> abstractBuild, BuildListener listener) {
@@ -85,7 +90,29 @@ public abstract class BaseBuilder extends Builder {
     }
 
     protected String getHubUrl() {
+        if(hubUrl == null) {
+            return getDefaultHubUrl();
+        } else {
+            return hubUrl;
+        }
+    }
+
+    protected String getDefaultHubUrl (){
         return "https://turbo.net";
+    }
+
+    public void switchHub(CommandDriver client, String hubUrl) {
+        ConfigCommand.CommandBuilder cmdBuilder = ConfigCommand.builder();
+        if (Strings.isNullOrEmpty(hubUrl)) {
+            cmdBuilder.reset(true);
+        } else {
+            cmdBuilder.hub(hubUrl);
+        }
+
+        ConfigCommand configCommand = cmdBuilder.build();
+        configCommand.run(client);
+
+        this.hubUrl = configCommand.getHub().orNull();
     }
 
     private EnvVars getEnvironment(AbstractBuild<?, ?> build, BuildListener listener) throws IllegalStateException {
