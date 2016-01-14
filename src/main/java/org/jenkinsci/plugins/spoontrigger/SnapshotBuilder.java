@@ -18,6 +18,7 @@ import lombok.Getter;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.ImportCommand;
+import org.jenkinsci.plugins.spoontrigger.commands.turbo.PullCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.xstudio.BuildCommand;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.scheduledtasks.ScheduledTasksApi;
@@ -44,6 +45,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -65,6 +67,7 @@ public class SnapshotBuilder extends BaseBuilder {
 
     private final String xStudioPath;
     private final Optional<String> xStudioLicensePath;
+    private final ArrayList<String> dependencies;
     private final ArrayList<String> snapshotPathsToDelete;
 
     @Getter
@@ -81,12 +84,14 @@ public class SnapshotBuilder extends BaseBuilder {
             String xStudioLicensePath,
             String vagrantBox,
             boolean overwrite,
+            Collection<String> dependencies,
             Collection<String> snapshotFilesToDelete,
             InstallScriptSettings installScriptSettings,
             StartupFileSettings startupFileSettings) {
         this.xStudioPath = Util.fixEmptyAndTrim(xStudioPath);
         this.xStudioLicensePath = Optional.fromNullable(Util.fixEmptyAndTrim(xStudioLicensePath));
         this.vagrantBox = Util.fixEmptyAndTrim(vagrantBox);
+        this.dependencies = new ArrayList<String>(dependencies);
         this.snapshotPathsToDelete = new ArrayList<String>(snapshotFilesToDelete);
         this.overwrite = overwrite;
         this.installScriptSettings = installScriptSettings;
@@ -148,6 +153,13 @@ public class SnapshotBuilder extends BaseBuilder {
         } finally {
             quietDeleteChildren(Paths.get(workspace));
         }
+    }
+
+    public String getDependencies() {
+        if (dependencies.isEmpty()) {
+            return null;
+        }
+        return Joiner.on(", ").join(dependencies);
     }
 
     private boolean shouldAbort(SpoonBuild build, BuildListener listener) {
@@ -258,6 +270,7 @@ public class SnapshotBuilder extends BaseBuilder {
             try {
                 provisionVagrantVm();
                 remoteFilesFromSnapshot();
+                pullDependencies();
                 buildImage();
                 importImage();
             } catch (Throwable buildError) {
@@ -266,6 +279,13 @@ public class SnapshotBuilder extends BaseBuilder {
                 throw new IllegalStateException("`vagrant up` failed with exception", buildError);
             }
             destroyVagrantVm(false);
+        }
+
+        private void pullDependencies() {
+            for (String imageName : dependencies) {
+                PullCommand command = PullCommand.builder().image(imageName).build();
+                command.run(commandDriver);
+            }
         }
 
         private void remoteFilesFromSnapshot() throws Exception {
@@ -322,6 +342,10 @@ public class SnapshotBuilder extends BaseBuilder {
             Optional<String> startupFile = startupFileSettings.getStartupFile();
             if (startupFile.isPresent()) {
                 commandBuilder.startupFilePath(startupFile.get());
+            }
+
+            for (String dependency : dependencies) {
+                commandBuilder.dependency(dependency);
             }
 
             BuildCommand command = commandBuilder.build();
@@ -457,7 +481,6 @@ public class SnapshotBuilder extends BaseBuilder {
 
     @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
-
         public static final String DEFAULT_VAGRANT_BOX = "opentable/win-2012r2-standard-amd64-nocm";
         private static final Validator<File> HOST_FILE_PATH_VALIDATOR;
         private static final Validator<String> VAGRANT_DEFAULT_BOX_VALIDATOR;
@@ -465,6 +488,9 @@ public class SnapshotBuilder extends BaseBuilder {
         private static final Validator<String> VIRTUAL_FILE_PATH_VALIDATOR;
         private static final Validator<String> SILENT_INSTALL_ARGS_VALIDATOR;
         private static final Validator<String> VIRTUAL_PATHS_TO_DELETE_VALIDATOR;
+        private static final Validator<String> DEPENDENCY_VALIDATOR;
+
+        private static final Pattern SPLIT_DEPENDENCIES_PATTERN = Pattern.compile("/s+|,|;");
 
         static {
             HOST_FILE_PATH_VALIDATOR = Validators.chain(
@@ -482,6 +508,7 @@ public class SnapshotBuilder extends BaseBuilder {
                     StringValidators.isSingleWord(String.format(REQUIRE_SINGLE_WORD_S, "Parameter")));
             SILENT_INSTALL_ARGS_VALIDATOR = StringValidators.isNotNull(String.format(IGNORE_PARAMETER, "Parameter"), Level.OK);
             VIRTUAL_PATHS_TO_DELETE_VALIDATOR = new VirtualPathsToDeleteValidator();
+            DEPENDENCY_VALIDATOR = StringValidators.isNotNull(String.format(IGNORE_PARAMETER, "Parameter"), Level.OK);
         }
 
         @Getter
@@ -519,10 +546,11 @@ public class SnapshotBuilder extends BaseBuilder {
                 vagrantBoxToUse = getVagrantBox();
             }
             boolean overwrite = jsonWrapper.getBoolean("overwrite").or(Boolean.FALSE);
+            Collection<String> dependencies = extractDependencies(jsonWrapper.getString("dependencies").orNull());
             Collection<String> snapshotPathsToDelete = extractVirtualFilePaths(jsonWrapper.getString("snapshotPathsToDelete").orNull());
             InstallScriptSettings installSettings = InstallScriptSettings.fromJson(jsonWrapper.getObject("installScriptStrategy").orNull());
             StartupFileSettings startupFileSettings = StartupFileSettings.fromJson(jsonWrapper.getObject("startupFileStrategy").orNull());
-            return new SnapshotBuilder(getXStudioPath(), getXStudioLicensePath(), vagrantBoxToUse, overwrite, snapshotPathsToDelete, installSettings, startupFileSettings);
+            return new SnapshotBuilder(getXStudioPath(), getXStudioLicensePath(), vagrantBoxToUse, overwrite, dependencies, snapshotPathsToDelete, installSettings, startupFileSettings);
         }
 
         public FormValidation doCheckHostFilePath(@QueryParameter String value) {
@@ -570,6 +598,11 @@ public class SnapshotBuilder extends BaseBuilder {
             return Validators.validate(SILENT_INSTALL_ARGS_VALIDATOR, silentInstallArgs);
         }
 
+        public FormValidation doCheckDependencies(@QueryParameter String value) {
+            String dependencies = Util.fixEmptyAndTrim(value);
+            return Validators.validate(DEPENDENCY_VALIDATOR, dependencies);
+        }
+
         public String defaultSilentInstallArgs() {
             return "/S";
         }
@@ -593,6 +626,25 @@ public class SnapshotBuilder extends BaseBuilder {
         @Override
         public String getDisplayName() {
             return "Take Studio snapshot";
+        }
+
+        private Collection<String> extractDependencies(@Nullable String dependencies) {
+            String dependenciesToUse = Util.fixEmptyAndTrim(dependencies);
+
+            if (dependenciesToUse == null) {
+                return Collections.emptyList();
+            }
+
+            String[] segments = SPLIT_DEPENDENCIES_PATTERN.split(dependenciesToUse);
+            ArrayList<String> result = new ArrayList<String>(segments.length);
+            for (String segment : segments) {
+                String segmentToUse = segment.trim();
+                if (segmentToUse.length() > 0) {
+                    result.add(segmentToUse);
+                }
+            }
+
+            return result;
         }
 
         private static Collection<String> extractVirtualFilePaths(@Nullable String filePathList) {
