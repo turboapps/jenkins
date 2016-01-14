@@ -36,6 +36,10 @@
             </f:entry>
         </f:radioBlock>
     </f:entry>
+    <f:entry title="Dependencies" field="dependencies">
+        <f:textbox
+            checkUrl="'descriptorByName/SnapshotBuilder/checkDependencies?value='+escape(this.value)"/>
+    </f:entry>
     <f:entry title="Overwrite" field="overwrite">
         <f:checkbox/>
     </f:entry>

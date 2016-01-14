@@ -4,6 +4,8 @@ import com.google.common.base.Optional;
 import hudson.util.ArgumentListBuilder;
 import org.jenkinsci.plugins.spoontrigger.commands.VoidCommand;
 
+import java.util.ArrayList;
+
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.REQUIRE_PRESENT_S;
 
@@ -22,6 +24,7 @@ public class BuildCommand extends VoidCommand {
         private Optional<String> xapplPath = Optional.absent();
         private Optional<String> imagePath = Optional.absent();
         private Optional<String> startupFilePath = Optional.absent();
+        private ArrayList<String> dependencies = new ArrayList<String>();
 
         public CommandBuilder(String xStudioPath) {
             this.xStudioPath = xStudioPath;
@@ -47,6 +50,11 @@ public class BuildCommand extends VoidCommand {
             return this;
         }
 
+        public CommandBuilder dependency(String dependency) {
+            dependencies.add(dependency);
+            return this;
+        }
+
         public BuildCommand build() {
             checkState(xapplPath.isPresent(), String.format(REQUIRE_PRESENT_S, "xapplPath"));
             checkState(imagePath.isPresent(), String.format(REQUIRE_PRESENT_S, "imagePath"));
@@ -65,6 +73,11 @@ public class BuildCommand extends VoidCommand {
             if (licensePath.isPresent()) {
                 args.add("/l")
                         .add(licensePath.get());
+            }
+
+            for (String dependency : dependencies) {
+                args.add("/dependency")
+                        .add(dependency);
             }
 
             return new BuildCommand(args);
