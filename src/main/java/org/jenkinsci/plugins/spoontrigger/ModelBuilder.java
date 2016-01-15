@@ -31,6 +31,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -47,10 +49,13 @@ public class ModelBuilder extends BaseBuilder {
     @Nullable
     @Getter
     private final PushGuardSettings pushGuardSettings;
+    @Getter
+    private final String hubUrls;
 
     @DataBoundConstructor
-    public ModelBuilder(@Nullable PushGuardSettings pushGuardSettings) {
+    public ModelBuilder(@Nullable PushGuardSettings pushGuardSettings, @Nullable String hubUrls) {
         this.pushGuardSettings = pushGuardSettings;
+        this.hubUrls = hubUrls;
     }
 
     public String getMinBufferSize() {
@@ -69,12 +74,22 @@ public class ModelBuilder extends BaseBuilder {
 
         Path tempDir = Files.createTempDirectory("jenkins-model-" + build.getSanitizedProjectName() + "-build-");
         try {
-            ModelWorker worker = new ModelWorker(tempDir, build, launcher, listener);
+            ModelWorker worker = new ModelWorker(tempDir, build, launcher, listener, hubUrlsAsList());
             worker.buildModel();
         } finally {
             deleteDirectoryTree(tempDir);
         }
         return true;
+    }
+
+    private List<String> hubUrlsAsList() {
+        List<String> result = new ArrayList<String>();
+        if(this.hubUrls != null) {
+            for(String url: this.hubUrls.split(",")) {
+                result.add(url.trim());
+            }
+        }
+        return result;
     }
 
     private class ModelWorker {
@@ -87,8 +102,9 @@ public class ModelBuilder extends BaseBuilder {
         private final BuildListener listener;
         private final CommandDriver driver;
         private final ScheduledTasksApi tasksApi;
+        private final List<String> hubUrls;
 
-        public ModelWorker(Path workingDirectory, SpoonBuild build, Launcher launcher, BuildListener listener) {
+        public ModelWorker(Path workingDirectory, SpoonBuild build, Launcher launcher, BuildListener listener, List<String> hubUrls) {
             this.workingDir = workingDirectory;
             this.transcriptDir = Paths.get(workingDirectory.toString(), TRANSCRIPT_DIR).toAbsolutePath();
             this.modelDir = Paths.get(workingDirectory.toString(), MODEL_DIR).toAbsolutePath();
@@ -96,6 +112,7 @@ public class ModelBuilder extends BaseBuilder {
             this.build = build;
             this.image = build.getOutputImage().get();
             this.listener = listener;
+            this.hubUrls = hubUrls;
 
             this.driver = CommandDriver.builder(build).launcher(launcher).listener(listener).build();
             final boolean quiet = true;
@@ -131,8 +148,17 @@ public class ModelBuilder extends BaseBuilder {
                 builder.remoteImage(remoteImage.get().printIdentifier());
             }
 
-            PushModelCommand pushModelCommand = builder.build();
-            pushModelCommand.run(driver);
+            if(hubUrls.isEmpty()) {
+                PushModelCommand pushModelCommand = builder.build();
+                pushModelCommand.run(driver);
+            } else {
+                for(String hubUrl : hubUrlsAsList()) {
+                    switchHub(driver, hubUrl);
+
+                    PushModelCommand pushModelCommand = builder.build();
+                    pushModelCommand.run(driver);
+                }
+            }
         }
 
         private void model() {
@@ -261,6 +287,8 @@ public class ModelBuilder extends BaseBuilder {
     @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
         private static final Validator<String> NULL_OR_POSITIVE_FLOATING_POINT_NUMBER;
+        private static final Validator<String> HUB_URLS_VALIDATOR =
+                Validators.chain(StringValidators.isNotNull(IGNORE_PARAMETER, Level.OK));
 
         static {
             NULL_OR_POSITIVE_FLOATING_POINT_NUMBER = Validators.chain(
@@ -282,6 +310,11 @@ public class ModelBuilder extends BaseBuilder {
         public FormValidation doCheckMinBufferSize(@QueryParameter String value) {
             String minBufferSize = Util.fixEmptyAndTrim(value);
             return Validators.validate(NULL_OR_POSITIVE_FLOATING_POINT_NUMBER, minBufferSize);
+        }
+
+        public FormValidation doCheckHubUrls(@QueryParameter String value) {
+            String hubUrls = Util.fixEmptyAndTrim(value);
+            return Validators.validate(HUB_URLS_VALIDATOR, hubUrls);
         }
 
         private static class PositiveFloatingPointNumberValidator implements Validator<String> {

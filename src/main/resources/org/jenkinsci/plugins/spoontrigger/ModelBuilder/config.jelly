@@ -5,4 +5,7 @@
             <f:textbox checkUrl="'descriptorByName/ModelBuilder/checkMinBufferSize?value='+escape(this.value)"/>
         </f:entry>
     </f:optionalBlock>
+    <f:entry title="Hub(s)" field="hubUrls">
+        <f:textbox checkUrl="'descriptorByName/ModelBuilder/checkHubUrls?value='+escape(this.value)"/>
+    </f:entry>
 </j:jelly>
