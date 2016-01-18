@@ -300,11 +300,12 @@ public class SnapshotBuilder extends BaseBuilder {
         }
 
         private void executePostSnapshotScript() {
-            if (postSnapshotScriptPath == null) {
+            Path postSnapshotScriptPath = vagrantEnv.getPostSnapshotScriptPath();
+            if (!postSnapshotScriptPath.toFile().exists()) {
                 return;
             }
 
-            PowerShellCommand command = PowerShellCommand.builder().scriptPath(Paths.get(postSnapshotScriptPath)).build();
+            PowerShellCommand command = PowerShellCommand.builder().scriptPath(postSnapshotScriptPath).build();
             command.run(commandDriver);
         }
 
