@@ -56,7 +56,7 @@ public class ScheduledTasksApi {
     }
 
     /**
-     * Executes PowerShell command using a scheduled task. If a scheduled task with the specified name already exists it will be deleted.
+     * Executes PowerShellCommand command using a scheduled task. If a scheduled task with the specified name already exists it will be deleted.
      */
     public void run(String taskName, String command) throws IOException, InterruptedException {
         Path tempDir = Files.createTempDirectory("scheduledtask-");

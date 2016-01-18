@@ -17,6 +17,7 @@ public class VagrantEnvironment implements Closeable {
     public static final String TOOLS_DIRECTORY = "tools";
     public static final String INSTALL_DIRECTORY = "install";
     public static final String OUTPUT_DIRECTORY = "output";
+    public static final String POST_SNAPSHOT_SCRIPT_FILE = "post_snapshot.ps1";
     public static final String XAPPL_FILE = "snapshot.xappl";
     public static final String XSTUDIO_EXE_FILE = "xstudio.exe";
     public static final String XSTUDIO_LICENSE_FILE = "license.txt";
@@ -37,16 +38,24 @@ public class VagrantEnvironment implements Closeable {
         return new EnvironmentBuilder(workingDir);
     }
 
+    public Path getOutputPath() {
+        return Paths.get(workingDir.toString(), OUTPUT_DIRECTORY);
+    }
+
     public Path getSnapshotPath() {
-        return Paths.get(workingDir.toString(), OUTPUT_DIRECTORY, "Files");
+        return Paths.get(getOutputPath().toString(), "Files");
     }
 
     public Path getXapplPath() {
-        return Paths.get(workingDir.toString(), OUTPUT_DIRECTORY, XAPPL_FILE);
+        return Paths.get(getOutputPath().toString(), XAPPL_FILE);
+    }
+
+    public Path getPostSnapshotScriptPath() {
+        return Paths.get(getOutputPath().toString(), POST_SNAPSHOT_SCRIPT_FILE);
     }
 
     public Path getImagePath() {
-        return Paths.get(workingDir.toString(), OUTPUT_DIRECTORY, IMAGE_SVM_FILE);
+        return Paths.get(getOutputPath().toString(), IMAGE_SVM_FILE);
     }
 
     @Override
@@ -66,6 +75,7 @@ public class VagrantEnvironment implements Closeable {
         private Optional<String> installerPath = Optional.absent();
         private Optional<String> installScriptPath = Optional.absent();
         private Optional<String> installerArgs = Optional.absent();
+        private Optional<String> postSnapshotScriptPath = Optional.absent();
         private boolean ignoreExitCode = false;
 
         public EnvironmentBuilder(Path workingDir) {
@@ -93,6 +103,11 @@ public class VagrantEnvironment implements Closeable {
             return this;
         }
 
+        public EnvironmentBuilder postSnapshotScriptPath(String path) {
+            this.postSnapshotScriptPath = Optional.of(path);
+            return this;
+        }
+
         public EnvironmentBuilder box(String vagrantBox) {
             this.box = Optional.of(vagrantBox);
             return this;
@@ -107,6 +122,7 @@ public class VagrantEnvironment implements Closeable {
             setupToolsDirectory();
             String installScriptName = setupInstallDirectory();
             setupWorkingDirectory(box.get(), installScriptName);
+            setupOutputDirectory();
 
             return new VagrantEnvironment(workingDir);
         }
@@ -157,6 +173,18 @@ public class VagrantEnvironment implements Closeable {
             }
 
             throw new IllegalStateException("Failed to create installer script");
+        }
+
+        private void setupOutputDirectory() {
+            Path outputDir = Paths.get(workingDir.toString(), OUTPUT_DIRECTORY);
+
+            createDirectoryIfNotExist(outputDir);
+
+            if (postSnapshotScriptPath.isPresent()) {
+                Path postSnapshotScriptSourcePath = Paths.get(postSnapshotScriptPath.get());
+                Path postSnapshotScriptDestPath = Paths.get(outputDir.toString(), POST_SNAPSHOT_SCRIPT_FILE);
+                copyFile(postSnapshotScriptSourcePath, postSnapshotScriptDestPath);
+            }
         }
 
         private ArrayList<String> generateScriptContent(Path installerFile) {
