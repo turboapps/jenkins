@@ -17,6 +17,7 @@ import lombok.Data;
 import lombok.Getter;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
+import org.jenkinsci.plugins.spoontrigger.commands.powershell.PowerShellCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.ImportCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.PullCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.xstudio.BuildCommand;
@@ -71,6 +72,9 @@ public class SnapshotBuilder extends BaseBuilder {
     private final ArrayList<String> snapshotPathsToDelete;
 
     @Getter
+    private final String postSnapshotScriptPath;
+
+    @Getter
     private final boolean overwrite;
 
     @Getter
@@ -84,6 +88,7 @@ public class SnapshotBuilder extends BaseBuilder {
             String xStudioLicensePath,
             String vagrantBox,
             boolean overwrite,
+            String postSnapshotScriptPath,
             Collection<String> dependencies,
             Collection<String> snapshotFilesToDelete,
             InstallScriptSettings installScriptSettings,
@@ -91,9 +96,10 @@ public class SnapshotBuilder extends BaseBuilder {
         this.xStudioPath = Util.fixEmptyAndTrim(xStudioPath);
         this.xStudioLicensePath = Optional.fromNullable(Util.fixEmptyAndTrim(xStudioLicensePath));
         this.vagrantBox = Util.fixEmptyAndTrim(vagrantBox);
+        this.overwrite = overwrite;
+        this.postSnapshotScriptPath = Util.fixEmptyAndTrim(postSnapshotScriptPath);
         this.dependencies = new ArrayList<String>(dependencies);
         this.snapshotPathsToDelete = new ArrayList<String>(snapshotFilesToDelete);
-        this.overwrite = overwrite;
         this.installScriptSettings = installScriptSettings;
         this.startupFileSettings = startupFileSettings;
     }
@@ -194,6 +200,10 @@ public class SnapshotBuilder extends BaseBuilder {
                 .xStudioPath(xStudioPath)
                 .installerPath(getInstallerPath(buildWorkspace));
 
+        if (postSnapshotScriptPath != null) {
+            environmentBuilder.postSnapshotScriptPath(postSnapshotScriptPath);
+        }
+
         installScriptSettings.configure(environmentBuilder);
 
         return environmentBuilder.build();
@@ -269,7 +279,8 @@ public class SnapshotBuilder extends BaseBuilder {
         private void takeSnapshot() {
             try {
                 provisionVagrantVm();
-                remoteFilesFromSnapshot();
+                executePostSnapshotScript();
+                removeFilesFromSnapshot();
                 pullDependencies();
                 buildImage();
                 importImage();
@@ -288,7 +299,17 @@ public class SnapshotBuilder extends BaseBuilder {
             }
         }
 
-        private void remoteFilesFromSnapshot() throws Exception {
+        private void executePostSnapshotScript() {
+            Path postSnapshotScriptPath = vagrantEnv.getPostSnapshotScriptPath();
+            if (!postSnapshotScriptPath.toFile().exists()) {
+                return;
+            }
+
+            PowerShellCommand command = PowerShellCommand.builder().scriptPath(postSnapshotScriptPath).build();
+            command.run(commandDriver);
+        }
+
+        private void removeFilesFromSnapshot() throws Exception {
             if (snapshotPathsToDelete.isEmpty()) {
                 return;
             }
@@ -545,18 +566,27 @@ public class SnapshotBuilder extends BaseBuilder {
             if (Strings.isNullOrEmpty(vagrantBoxToUse)) {
                 vagrantBoxToUse = getVagrantBox();
             }
+            String postSnapshotScriptPath = jsonWrapper.getString("postSnapshotScriptPath").orNull();
             boolean overwrite = jsonWrapper.getBoolean("overwrite").or(Boolean.FALSE);
             Collection<String> dependencies = extractDependencies(jsonWrapper.getString("dependencies").orNull());
             Collection<String> snapshotPathsToDelete = extractVirtualFilePaths(jsonWrapper.getString("snapshotPathsToDelete").orNull());
             InstallScriptSettings installSettings = InstallScriptSettings.fromJson(jsonWrapper.getObject("installScriptStrategy").orNull());
             StartupFileSettings startupFileSettings = StartupFileSettings.fromJson(jsonWrapper.getObject("startupFileStrategy").orNull());
-            return new SnapshotBuilder(getXStudioPath(), getXStudioLicensePath(), vagrantBoxToUse, overwrite, dependencies, snapshotPathsToDelete, installSettings, startupFileSettings);
+            return new SnapshotBuilder(getXStudioPath(), getXStudioLicensePath(), vagrantBoxToUse, overwrite, postSnapshotScriptPath, dependencies, snapshotPathsToDelete, installSettings, startupFileSettings);
         }
 
         public FormValidation doCheckHostFilePath(@QueryParameter String value) {
             String filePath = Util.fixEmptyAndTrim(value);
             if (filePath == null) {
                 return FormValidation.error(String.format(REQUIRE_NON_EMPTY_STRING_S, "Parameter"));
+            }
+            return Validators.validate(HOST_FILE_PATH_VALIDATOR, new File(filePath));
+        }
+
+        public FormValidation doCheckPostSnapshotScriptPath(@QueryParameter String value) {
+            String filePath = Util.fixEmptyAndTrim(value);
+            if (filePath == null) {
+                return FormValidation.ok(String.format(IGNORE_PARAMETER, "Parameter"));
             }
             return Validators.validate(HOST_FILE_PATH_VALIDATOR, new File(filePath));
         }
@@ -570,6 +600,10 @@ public class SnapshotBuilder extends BaseBuilder {
         }
 
         public AutoCompletionCandidates doAutoCompleteInstallScriptPath(@QueryParameter String value) {
+            return suggestFiles(value);
+        }
+
+        public AutoCompletionCandidates doAutoCompletePostSnapshotScriptPath(@QueryParameter String value) {
             return suggestFiles(value);
         }
 
