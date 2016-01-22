@@ -44,9 +44,13 @@
         <f:checkbox/>
     </f:entry>
     <f:advanced>
+        <f:entry title="Pre-install script" field="preInstallScriptPath">
+            <f:textbox
+                checkUrl="'descriptorByName/SnapshotBuilder/checkOptionalScriptPath?value='+escape(this.value)"/>
+        </f:entry>
         <f:entry title="Post snapshot script" field="postSnapshotScriptPath">
             <f:textbox
-                checkUrl="'descriptorByName/SnapshotBuilder/checkPostSnapshotScriptPath?value='+escape(this.value)"/>
+                checkUrl="'descriptorByName/SnapshotBuilder/checkOptionalScriptPath?value='+escape(this.value)"/>
         </f:entry>
         <f:entry title="Files to delete from snapshot" field="snapshotPathsToDelete">
             <f:textarea default="${descriptor.defaultSnapshotPathsToDelete()}"/>

@@ -72,6 +72,9 @@ public class SnapshotBuilder extends BaseBuilder {
     private final ArrayList<String> snapshotPathsToDelete;
 
     @Getter
+    private final String preInstallScriptPath;
+
+    @Getter
     private final String postSnapshotScriptPath;
 
     @Getter
@@ -88,6 +91,7 @@ public class SnapshotBuilder extends BaseBuilder {
             String xStudioLicensePath,
             String vagrantBox,
             boolean overwrite,
+            String preInstallScriptPath,
             String postSnapshotScriptPath,
             Collection<String> dependencies,
             Collection<String> snapshotFilesToDelete,
@@ -97,6 +101,7 @@ public class SnapshotBuilder extends BaseBuilder {
         this.xStudioLicensePath = Optional.fromNullable(Util.fixEmptyAndTrim(xStudioLicensePath));
         this.vagrantBox = Util.fixEmptyAndTrim(vagrantBox);
         this.overwrite = overwrite;
+        this.preInstallScriptPath = Util.fixEmptyAndTrim(preInstallScriptPath);
         this.postSnapshotScriptPath = Util.fixEmptyAndTrim(postSnapshotScriptPath);
         this.dependencies = new ArrayList<String>(dependencies);
         this.snapshotPathsToDelete = new ArrayList<String>(snapshotFilesToDelete);
@@ -197,8 +202,16 @@ public class SnapshotBuilder extends BaseBuilder {
         Path workingDir = Files.createTempDirectory("jenkins-" + build.getSanitizedProjectName() + "-build-");
         VagrantEnvironment.EnvironmentBuilder environmentBuilder = VagrantEnvironment.builder(workingDir)
                 .box(vagrantBox)
-                .xStudioPath(xStudioPath)
-                .installerPath(getInstallerPath(buildWorkspace));
+                .xStudioPath(xStudioPath);
+
+        Optional<String> installerPath = getInstallerPath(buildWorkspace);
+        if (installerPath.isPresent()) {
+            environmentBuilder.installerPath(installerPath.get());
+        }
+
+        if (preInstallScriptPath != null) {
+            environmentBuilder.preInstallScriptPath(preInstallScriptPath);
+        }
 
         if (postSnapshotScriptPath != null) {
             environmentBuilder.postSnapshotScriptPath(postSnapshotScriptPath);
@@ -209,7 +222,7 @@ public class SnapshotBuilder extends BaseBuilder {
         return environmentBuilder.build();
     }
 
-    private String getInstallerPath(String buildWorkspace) {
+    private Optional<String> getInstallerPath(String buildWorkspace) {
         File workspace = new File(buildWorkspace);
         File[] workspaceFiles = workspace.listFiles();
         checkState(workspaceFiles != null, "Failed to list files in %s directory", buildWorkspace);
@@ -229,9 +242,10 @@ public class SnapshotBuilder extends BaseBuilder {
             }
         }
 
-        checkState(installerFile != null, "Workspace %s does not contain application installer", buildWorkspace);
-
-        return installerFile.getAbsolutePath();
+        if (installerFile != null) {
+            return Optional.of(installerFile.getAbsolutePath());
+        }
+        return Optional.absent();
     }
 
     private Optional<Image> loadImportImageName(String workspacePath) throws IOException {
@@ -566,13 +580,24 @@ public class SnapshotBuilder extends BaseBuilder {
             if (Strings.isNullOrEmpty(vagrantBoxToUse)) {
                 vagrantBoxToUse = getVagrantBox();
             }
+            String preInstallScriptPath = jsonWrapper.getString("preInstallScriptPath").orNull();
             String postSnapshotScriptPath = jsonWrapper.getString("postSnapshotScriptPath").orNull();
             boolean overwrite = jsonWrapper.getBoolean("overwrite").or(Boolean.FALSE);
             Collection<String> dependencies = extractDependencies(jsonWrapper.getString("dependencies").orNull());
             Collection<String> snapshotPathsToDelete = extractVirtualFilePaths(jsonWrapper.getString("snapshotPathsToDelete").orNull());
             InstallScriptSettings installSettings = InstallScriptSettings.fromJson(jsonWrapper.getObject("installScriptStrategy").orNull());
             StartupFileSettings startupFileSettings = StartupFileSettings.fromJson(jsonWrapper.getObject("startupFileStrategy").orNull());
-            return new SnapshotBuilder(getXStudioPath(), getXStudioLicensePath(), vagrantBoxToUse, overwrite, postSnapshotScriptPath, dependencies, snapshotPathsToDelete, installSettings, startupFileSettings);
+            return new SnapshotBuilder(
+                    getXStudioPath(),
+                    getXStudioLicensePath(),
+                    vagrantBoxToUse,
+                    overwrite,
+                    preInstallScriptPath,
+                    postSnapshotScriptPath,
+                    dependencies,
+                    snapshotPathsToDelete,
+                    installSettings,
+                    startupFileSettings);
         }
 
         public FormValidation doCheckHostFilePath(@QueryParameter String value) {
@@ -583,7 +608,7 @@ public class SnapshotBuilder extends BaseBuilder {
             return Validators.validate(HOST_FILE_PATH_VALIDATOR, new File(filePath));
         }
 
-        public FormValidation doCheckPostSnapshotScriptPath(@QueryParameter String value) {
+        public FormValidation doCheckOptionalScriptPath(@QueryParameter String value) {
             String filePath = Util.fixEmptyAndTrim(value);
             if (filePath == null) {
                 return FormValidation.ok(String.format(IGNORE_PARAMETER, "Parameter"));
@@ -604,6 +629,10 @@ public class SnapshotBuilder extends BaseBuilder {
         }
 
         public AutoCompletionCandidates doAutoCompletePostSnapshotScriptPath(@QueryParameter String value) {
+            return suggestFiles(value);
+        }
+
+        public AutoCompletionCandidates doAutoCompletePreInstallScriptPath(@QueryParameter String value) {
             return suggestFiles(value);
         }
 

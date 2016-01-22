@@ -12,6 +12,13 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.guest = :windows
   config.vm.network :forwarded_port, host: 33389, guest: 3389, id: "rdp", auto_correct: true
 
+  $if(t.preInstallScript)$
+  config.vm.provision :shell do |s|
+    s.name = "Run pre-install script"
+    s.path = "$t.preInstallCommand$"
+  end
+  $endif$
+
   # XStudio and license file are saved in Vagrant working directory that is synced automatically with guest machine
   # Automate snapshot using shell provisioner and xstudio
   config.vm.provision :shell do |s|
