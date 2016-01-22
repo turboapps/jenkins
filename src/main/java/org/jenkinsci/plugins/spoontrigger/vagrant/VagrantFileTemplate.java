@@ -4,10 +4,12 @@ import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
 import com.google.common.io.Resources;
 import hudson.util.ArgumentListBuilder;
+import lombok.Data;
 import org.stringtemplate.v4.ST;
 import org.stringtemplate.v4.misc.ErrorBuffer;
 import org.stringtemplate.v4.misc.STMessage;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.Charset;
@@ -24,12 +26,23 @@ public class VagrantFileTemplate {
     private static final String XSTUDIO_PATH = TOOLS_DIR + "\\xstudio.exe";
     private static final String SNAPSHOT_PATH = OUTPUT_DIR + "\\snapshot";
 
-    private final String installScriptFileName;
-    private final String box;
+    @Data
+    public static class Config {
+        private final String preInstallScriptName;
+        private final String installScriptName;
+        private final String vagrantBox;
 
-    public VagrantFileTemplate(String installScriptFileName, String box) {
-        this.installScriptFileName = installScriptFileName;
-        this.box = box;
+        public Config(@Nullable String preInstallScriptName, String installScriptName, String vagrantBox) {
+            this.preInstallScriptName = preInstallScriptName;
+            this.installScriptName = installScriptName;
+            this.vagrantBox = vagrantBox;
+        }
+    }
+
+    private final Config config;
+
+    public VagrantFileTemplate(Config config) {
+        this.config = config;
     }
 
     public void save(Path templatePath) throws IOException {
@@ -56,7 +69,11 @@ public class VagrantFileTemplate {
     }
 
     public String getBox() {
-        return this.box;
+        return config.getVagrantBox();
+    }
+
+    public String getPreInstallScript() {
+        return config.getPreInstallScriptName();
     }
 
     public String getBeforeSnapshotCommand() {
@@ -68,8 +85,12 @@ public class VagrantFileTemplate {
                 .toString();
     }
 
+    public String getPreInstallCommand() {
+        return "install\\\\" + config.getPreInstallScriptName();
+    }
+
     public String getInstallCommand() {
-        return "install//" + installScriptFileName;
+        return "install\\\\" + config.getInstallScriptName();
     }
 
     public String getAfterSnapshotCommand() {

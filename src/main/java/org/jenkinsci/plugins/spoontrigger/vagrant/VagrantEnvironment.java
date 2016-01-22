@@ -17,6 +17,7 @@ public class VagrantEnvironment implements Closeable {
     public static final String TOOLS_DIRECTORY = "tools";
     public static final String INSTALL_DIRECTORY = "install";
     public static final String OUTPUT_DIRECTORY = "output";
+    public static final String PRE_INSTALL_SCRIPT_FILE = "pre_install.ps1";
     public static final String POST_SNAPSHOT_SCRIPT_FILE = "post_snapshot.ps1";
     public static final String XAPPL_FILE = "snapshot.xappl";
     public static final String XSTUDIO_EXE_FILE = "xstudio.exe";
@@ -76,6 +77,7 @@ public class VagrantEnvironment implements Closeable {
         private Optional<String> installScriptPath = Optional.absent();
         private Optional<String> installerArgs = Optional.absent();
         private Optional<String> postSnapshotScriptPath = Optional.absent();
+        private Optional<String> preInstallScriptPath = Optional.absent();
         private boolean ignoreExitCode = false;
 
         public EnvironmentBuilder(Path workingDir) {
@@ -108,6 +110,11 @@ public class VagrantEnvironment implements Closeable {
             return this;
         }
 
+        public EnvironmentBuilder preInstallScriptPath(String path) {
+            this.preInstallScriptPath = Optional.of(path);
+            return this;
+        }
+
         public EnvironmentBuilder box(String vagrantBox) {
             this.box = Optional.of(vagrantBox);
             return this;
@@ -116,12 +123,17 @@ public class VagrantEnvironment implements Closeable {
         public VagrantEnvironment build() {
             checkState(box.isPresent(), "VagrantBox not defined");
             checkState(xStudioPath.isPresent(), "XStudioPath not defined");
-            checkState(installerPath.isPresent(), "InstallerPath not defined");
-            checkState(installerArgs.isPresent() ^ installScriptPath.isPresent(), "Only one parameter: `installerArgs` or `installScriptPath` must be defined");
+
+            if (installerArgs.isPresent()) {
+                checkState(installerPath.isPresent(), "InstallerPath not defined");
+                checkState(!installScriptPath.isPresent(), "Only one parameter: `installerArgs` or `installScriptPath` must be defined");
+            } else {
+                checkState(installScriptPath.isPresent(), "InstallerScriptPath not defined");
+            }
 
             setupToolsDirectory();
-            String installScriptName = setupInstallDirectory();
-            setupWorkingDirectory(box.get(), installScriptName);
+            VagrantFileTemplate.Config vagrantConfig = setupInstallDirectory();
+            setupWorkingDirectory(vagrantConfig);
             setupOutputDirectory();
 
             return new VagrantEnvironment(workingDir);
@@ -136,40 +148,49 @@ public class VagrantEnvironment implements Closeable {
             copyFile(xStudioSourcePath, xStudioDestPath);
         }
 
-        private String setupInstallDirectory() {
+        private VagrantFileTemplate.Config setupInstallDirectory() {
             Path installDir = Paths.get(workingDir.toString(), INSTALL_DIRECTORY);
 
             createDirectoryIfNotExist(installDir);
 
-            Path installerSourcePath = Paths.get(installerPath.get());
-            String installerFileName = installerSourcePath.getFileName().toString();
-            Path installerDestPath = Paths.get(workingDir.toString(), INSTALL_DIRECTORY, installerFileName);
-            copyFile(installerSourcePath, installerDestPath);
+            String preInstallScriptFileName = null;
+            if (preInstallScriptPath.isPresent()) {
+                Path preInstallScriptSourcePath = Paths.get(preInstallScriptPath.get());
+                preInstallScriptFileName = PRE_INSTALL_SCRIPT_FILE;
+                Path preInstallScriptDestPath = Paths.get(installDir.toString(), preInstallScriptFileName);
+                copyFile(preInstallScriptSourcePath, preInstallScriptDestPath);
+            }
 
             if (installScriptPath.isPresent()) {
                 Path installScriptSourcePath = Paths.get(installScriptPath.get());
                 String installScriptFileName = installScriptSourcePath.getFileName().toString();
                 Path installScriptDestPath = Paths.get(installDir.toString(), installScriptFileName);
                 copyFile(installScriptSourcePath, installScriptDestPath);
-
-                return installScriptFileName;
+                return new VagrantFileTemplate.Config(preInstallScriptFileName, installScriptFileName, box.get());
             }
 
-            if (installerArgs.isPresent()) {
-                Path installerScriptPath = Paths.get(installDir.toString(), INSTALL_SCRIPT_FILE);
-                try {
-                    Files.write(
-                            installerScriptPath,
-                            generateScriptContent(installerDestPath),
-                            Charset.defaultCharset(),
-                            StandardOpenOption.CREATE,
-                            StandardOpenOption.TRUNCATE_EXISTING,
-                            StandardOpenOption.WRITE);
-                } catch (IOException ex) {
-                    throw new IllegalStateException(String.format("Failed to create %s", installerScriptPath), ex);
-                }
+            if (installerPath.isPresent()) {
+                Path installerSourcePath = Paths.get(installerPath.get());
+                String installerFileName = installerSourcePath.getFileName().toString();
+                Path installerDestPath = Paths.get(workingDir.toString(), INSTALL_DIRECTORY, installerFileName);
+                copyFile(installerSourcePath, installerDestPath);
 
-                return INSTALL_SCRIPT_FILE;
+                if (installerArgs.isPresent()) {
+                    Path installerScriptPath = Paths.get(installDir.toString(), INSTALL_SCRIPT_FILE);
+                    try {
+                        Files.write(
+                                installerScriptPath,
+                                generateScriptContent(installerDestPath),
+                                Charset.defaultCharset(),
+                                StandardOpenOption.CREATE,
+                                StandardOpenOption.TRUNCATE_EXISTING,
+                                StandardOpenOption.WRITE);
+                    } catch (IOException ex) {
+                        throw new IllegalStateException(String.format("Failed to create %s", installerScriptPath), ex);
+                    }
+
+                    return new VagrantFileTemplate.Config(preInstallScriptFileName, INSTALL_SCRIPT_FILE, box.get());
+                }
             }
 
             throw new IllegalStateException("Failed to create installer script");
@@ -208,8 +229,8 @@ public class VagrantEnvironment implements Closeable {
             return scriptContent;
         }
 
-        private void setupWorkingDirectory(String vagrantBox, String installScriptName) {
-            VagrantFileTemplate vagrantFileTemplate = new VagrantFileTemplate(installScriptName, vagrantBox);
+        private void setupWorkingDirectory(VagrantFileTemplate.Config config) {
+            VagrantFileTemplate vagrantFileTemplate = new VagrantFileTemplate(config);
             try {
                 vagrantFileTemplate.save(Paths.get(workingDir.toString(), VAGRANT_FILE));
             } catch (IOException ex) {
