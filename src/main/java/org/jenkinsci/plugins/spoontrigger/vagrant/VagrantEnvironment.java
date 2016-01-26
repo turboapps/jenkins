@@ -161,12 +161,13 @@ public class VagrantEnvironment implements Closeable {
                 copyFile(preInstallScriptSourcePath, preInstallScriptDestPath);
             }
 
+            VagrantFileTemplate.Config config = null;
             if (installScriptPath.isPresent()) {
                 Path installScriptSourcePath = Paths.get(installScriptPath.get());
                 String installScriptFileName = installScriptSourcePath.getFileName().toString();
                 Path installScriptDestPath = Paths.get(installDir.toString(), installScriptFileName);
                 copyFile(installScriptSourcePath, installScriptDestPath);
-                return new VagrantFileTemplate.Config(preInstallScriptFileName, installScriptFileName, box.get());
+                config = new VagrantFileTemplate.Config(preInstallScriptFileName, installScriptFileName, box.get());
             }
 
             if (installerPath.isPresent()) {
@@ -189,11 +190,17 @@ public class VagrantEnvironment implements Closeable {
                         throw new IllegalStateException(String.format("Failed to create %s", installerScriptPath), ex);
                     }
 
-                    return new VagrantFileTemplate.Config(preInstallScriptFileName, INSTALL_SCRIPT_FILE, box.get());
+                    if (config == null) {
+                        config = new VagrantFileTemplate.Config(preInstallScriptFileName, INSTALL_SCRIPT_FILE, box.get());
+                    }
                 }
             }
 
-            throw new IllegalStateException("Failed to create installer script");
+            if (config == null) {
+                throw new IllegalStateException("Failed to create installer script");
+            }
+
+            return config;
         }
 
         private void setupOutputDirectory() {
