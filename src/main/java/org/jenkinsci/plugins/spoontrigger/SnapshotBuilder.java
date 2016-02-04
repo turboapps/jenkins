@@ -393,8 +393,9 @@ public class SnapshotBuilder extends BaseBuilder {
                     .path(vagrantEnv.getImagePath().toString())
                     .overwrite(overwrite);
 
-            if (importAsImage.isPresent()) {
-                commandBuilder.name(importAsImage.get().printIdentifier());
+            Optional<Image> imageToUse = getOutputImage();
+            if (imageToUse.isPresent()) {
+                commandBuilder.name(imageToUse.get().printIdentifier());
             }
 
             ImportCommand command = commandBuilder.build();
@@ -404,6 +405,20 @@ public class SnapshotBuilder extends BaseBuilder {
             checkState(outputImage.isPresent(), "Failed to find imported image in command output");
 
             build.setOutputImage(outputImage.get());
+        }
+
+        private Optional<Image> getOutputImage() {
+            // load image name from Vagrant working directory, because some snapshot projects extract product version after installation completed
+            // otherwise use image name specified during build setup
+            String vagrantWorkingDirPath = vagrantEnv.getWorkingDir().toString();
+            try {
+                Optional<Image> imageNameOpt = loadImportImageName(vagrantWorkingDirPath);
+                return imageNameOpt.or(importAsImage);
+            } catch (Throwable th) {
+                String errMsg = String.format("Failed to load image name from %s", Paths.get(vagrantWorkingDirPath, IMAGE_NAME_FILE).toString());
+                log(listener, errMsg, th);
+                return importAsImage;
+            }
         }
 
         private void provisionVagrantVm() throws IOException, InterruptedException {
