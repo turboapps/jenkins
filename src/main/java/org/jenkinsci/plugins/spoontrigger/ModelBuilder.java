@@ -153,7 +153,7 @@ public class ModelBuilder extends BaseBuilder {
                 pushModelCommand.run(driver);
             } else {
                 for(String hubUrl : hubUrlsAsList()) {
-                    switchHub(driver, hubUrl);
+                    switchHub(driver, hubUrl, build);
 
                     PushModelCommand pushModelCommand = builder.build();
                     pushModelCommand.run(driver);

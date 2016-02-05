@@ -21,7 +21,7 @@
             checked="${instance.installScriptStrategy eq 'FIXED'}">
             <f:entry title="Path" field="installScriptPath">
                 <f:textbox
-                    checkUrl="'descriptorByName/SnapshotBuilder/checkHostFilePath?value='+escape(this.value)"/>
+                    checkUrl="'descriptorByName/SnapshotBuilder/checkRequiredFilePath?value='+escape(this.value)"/>
             </f:entry>
         </f:radioBlock>
     </f:entry>
@@ -46,12 +46,16 @@
     <f:advanced>
         <f:entry title="Pre-install script" field="preInstallScriptPath">
             <f:textbox
-                checkUrl="'descriptorByName/SnapshotBuilder/checkOptionalScriptPath?value='+escape(this.value)"/>
+                checkUrl="'descriptorByName/SnapshotBuilder/checkOptionalFilePath?value='+escape(this.value)"/>
         </f:entry>
         <f:entry title="Post snapshot script" field="postSnapshotScriptPath">
             <f:textbox
-                checkUrl="'descriptorByName/SnapshotBuilder/checkOptionalScriptPath?value='+escape(this.value)"/>
+                checkUrl="'descriptorByName/SnapshotBuilder/checkOptionalFilePath?value='+escape(this.value)"/>
         </f:entry>
+        <f:entry title="Resource directory" field="resourceDirectoryPath">
+            <f:textbox
+                checkUrl="'descriptorByName/SnapshotBuilder/checkOptionalDirectoryPath?value='+escape(this.value)"/>
+            </f:entry>
         <f:entry title="Files to delete from snapshot" field="snapshotPathsToDelete">
             <f:textarea default="${descriptor.defaultSnapshotPathsToDelete()}"/>
         </f:entry>

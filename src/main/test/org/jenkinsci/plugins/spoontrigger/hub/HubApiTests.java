@@ -7,12 +7,12 @@ import org.junit.Assert;
 import org.junit.Test;
 
 public class HubApiTests {
-    private static final String ImageName = "mozilla/firefox";
+    private static final String ImageName = "turbobrowsers/turbobase";
 
     @Test
     public void getLatestVersion() throws Exception {
         // given
-        HubApi hubApi = new HubApi("https://turbo.net", new BuildListenerAdapter(TaskListener.NULL));
+        HubApi hubApi = new HubApi("https://stage.turbo.net", new BuildListenerAdapter(TaskListener.NULL));
         Image image = Image.parse(ImageName);
 
         // when

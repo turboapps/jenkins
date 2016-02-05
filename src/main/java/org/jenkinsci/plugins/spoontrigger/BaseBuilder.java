@@ -60,7 +60,7 @@ public abstract class BaseBuilder extends Builder {
 
     protected abstract boolean perform(SpoonBuild build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException;
 
-    protected boolean isAvailableRemotely(Image remoteImage, BuildListener listener) {
+    protected boolean isAvailableRemotely(Image remoteImage, SpoonBuild build, BuildListener listener) {
         if (remoteImage.getNamespace() == null) {
             String msg = "Check if image " + remoteImage.printIdentifier() + " is available remotely is skipped," +
                     " because the image name does not specify namespace and it can't be extracted" +
@@ -71,7 +71,7 @@ public abstract class BaseBuilder extends Builder {
         }
 
         try {
-            HubApi hubApi = createHubApi(listener);
+            HubApi hubApi = createHubApi(build, listener);
             boolean result = hubApi.isAvailableRemotely(remoteImage);
 
             if (result) {
@@ -90,22 +90,22 @@ public abstract class BaseBuilder extends Builder {
     }
 
     protected String getHubUrl() {
-        if(hubUrl == null) {
+        if (hubUrl == null) {
             return getDefaultHubUrl();
         } else {
             return hubUrl;
         }
     }
 
-    protected String getDefaultHubUrl (){
+    protected String getDefaultHubUrl() {
         return "https://turbo.net";
     }
 
-    public HubApi createHubApi(BuildListener listener) {
-        return new HubApi(getHubUrl(), listener);
+    public HubApi createHubApi(SpoonBuild build, BuildListener listener) {
+        return new HubApi(build.getHubUrl().or(getHubUrl()), listener);
     }
 
-    public void switchHub(CommandDriver client, String hubUrl) {
+    public void switchHub(CommandDriver client, String hubUrl, SpoonBuild build) {
         ConfigCommand.CommandBuilder cmdBuilder = ConfigCommand.builder();
         if (Strings.isNullOrEmpty(hubUrl)) {
             cmdBuilder.reset(true);
@@ -117,6 +117,8 @@ public abstract class BaseBuilder extends Builder {
         configCommand.run(client);
 
         this.hubUrl = configCommand.getHub().orNull();
+
+        build.setHubUrl(this.hubUrl);
     }
 
     private EnvVars getEnvironment(AbstractBuild<?, ?> build, BuildListener listener) throws IllegalStateException {

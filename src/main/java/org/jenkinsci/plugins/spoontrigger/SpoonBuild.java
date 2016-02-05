@@ -36,6 +36,8 @@ public class SpoonBuild extends Build<SpoonProject, SpoonBuild> {
     private Optional<FilePath> script = Optional.absent();
     @Getter
     private Optional<EnvVars> env = Optional.absent();
+    @Getter
+    private Optional<String> hubUrl = Optional.absent();
 
     public SpoonBuild(SpoonProject project) throws IOException {
         super(project);
@@ -110,5 +112,9 @@ public class SpoonBuild extends Build<SpoonProject, SpoonBuild> {
 
     void setEnv(EnvVars env) {
         this.env = Optional.of(env);
+    }
+
+    void setHubUrl(String hubUrl) {
+        this.hubUrl = Optional.of(hubUrl);
     }
 }
