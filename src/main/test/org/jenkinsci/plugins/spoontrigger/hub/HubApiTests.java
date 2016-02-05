@@ -1,49 +1,31 @@
 package org.jenkinsci.plugins.spoontrigger.hub;
 
+import com.google.common.base.Optional;
 import hudson.model.TaskListener;
 import jenkins.util.BuildListenerAdapter;
 import org.junit.Assert;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 
-import java.util.Arrays;
-
-@RunWith(Parameterized.class)
 public class HubApiTests {
-    private static final String MissingImageName = "mozilla/ffox";
     private static final String ImageName = "mozilla/firefox";
-    private static final String MissingTag = "missing-tag";
-    private static final String Tag = "42.0";
-
-    private Image image;
-    private boolean shouldExist;
-
-    private HubApi hubApi;
-
-    public HubApiTests(String imageName, boolean shouldExist) {
-        this.image = Image.parse(imageName);
-        this.shouldExist = shouldExist;
-
-        this.hubApi = new HubApi("https://turbo.net", new BuildListenerAdapter(TaskListener.NULL));
-    }
-
-    @Parameterized.Parameters
-    public static Iterable data() {
-        return Arrays.asList(
-                new Object[][]{
-                        {ImageName, true},
-                        {ImageName + ":" + Tag, true},
-                        {ImageName + ":" + MissingTag, false},
-                        {MissingImageName, false}
-                }
-        );
-    }
 
     @Test
-    public void parseImage() throws Exception {
-        boolean isAvailableRemotely = hubApi.isAvailableRemotely(image);
+    public void getLatestVersion() throws Exception {
+        // given
+        HubApi hubApi = new HubApi("https://turbo.net", new BuildListenerAdapter(TaskListener.NULL));
+        Image image = Image.parse(ImageName);
 
-        Assert.assertEquals(shouldExist, isAvailableRemotely);
+        // when
+        Image latestImage = hubApi.getLatestVersion(image);
+        final String tag = latestImage.getTag();
+
+        // then
+        Assert.assertNotNull(tag);
+
+        Optional<Version> versionOpt = Version.tryParse(tag);
+        Assert.assertTrue(versionOpt.isPresent());
+
+        Version latestVersion = versionOpt.get();
+        Assert.assertTrue(latestVersion.compareTo(Version.tryParse("43.0").get()) > 0);
     }
 }

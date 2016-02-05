@@ -70,8 +70,8 @@ public abstract class BaseBuilder extends Builder {
             return false;
         }
 
-        HubApi hubApi = new HubApi(getHubUrl(), listener);
         try {
+            HubApi hubApi = createHubApi(listener);
             boolean result = hubApi.isAvailableRemotely(remoteImage);
 
             if (result) {
@@ -99,6 +99,10 @@ public abstract class BaseBuilder extends Builder {
 
     protected String getDefaultHubUrl (){
         return "https://turbo.net";
+    }
+
+    public HubApi createHubApi(BuildListener listener) {
+        return new HubApi(getHubUrl(), listener);
     }
 
     public void switchHub(CommandDriver client, String hubUrl) {

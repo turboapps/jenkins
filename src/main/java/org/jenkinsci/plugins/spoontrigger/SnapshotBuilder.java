@@ -21,6 +21,7 @@ import org.jenkinsci.plugins.spoontrigger.commands.powershell.PowerShellCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.ImportCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.PullCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.xstudio.BuildCommand;
+import org.jenkinsci.plugins.spoontrigger.hub.HubApi;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.scheduledtasks.ScheduledTasksApi;
 import org.jenkinsci.plugins.spoontrigger.snapshot.InstallScriptStrategy;
@@ -295,7 +296,6 @@ public class SnapshotBuilder extends BaseBuilder {
                 provisionVagrantVm();
                 executePostSnapshotScript();
                 removeFilesFromSnapshot();
-                pullDependencies();
                 buildImage();
                 importImage();
             } catch (Throwable buildError) {
@@ -306,11 +306,9 @@ public class SnapshotBuilder extends BaseBuilder {
             destroyVagrantVm(false);
         }
 
-        private void pullDependencies() {
-            for (String imageName : dependencies) {
-                PullCommand command = PullCommand.builder().image(imageName).build();
-                command.run(commandDriver);
-            }
+        private void pull(Image image) {
+            PullCommand command = PullCommand.builder().image(image.printIdentifier()).build();
+            command.run(commandDriver);
         }
 
         private void executePostSnapshotScript() {
@@ -379,8 +377,15 @@ public class SnapshotBuilder extends BaseBuilder {
                 commandBuilder.startupFilePath(startupFile.get());
             }
 
+            HubApi hubApi = createHubApi(listener);
             for (String dependency : dependencies) {
-                commandBuilder.dependency(dependency);
+                Image buildDependency = Image.parse(dependency);
+                Image dependencyToUse = buildDependency.getTag() == null ?
+                        hubApi.getLatestVersion(buildDependency) : buildDependency;
+
+                pull(dependencyToUse);
+
+                commandBuilder.dependency(dependencyToUse.printIdentifier());
             }
 
             BuildCommand command = commandBuilder.build();

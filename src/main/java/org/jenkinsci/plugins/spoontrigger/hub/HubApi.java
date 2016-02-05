@@ -1,7 +1,9 @@
 package org.jenkinsci.plugins.spoontrigger.hub;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.Ordering;
 import hudson.model.BuildListener;
+import lombok.SneakyThrows;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import org.apache.commons.httpclient.HttpStatus;
@@ -16,6 +18,7 @@ import org.apache.http.util.EntityUtils;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
@@ -30,28 +33,55 @@ public class HubApi {
         this.listener = listener;
     }
 
+    @SneakyThrows
+    public Image getLatestVersion(Image image) {
+        checkArgument(image.getNamespace() != null, "image");
+
+        try {
+            Optional<JSONArray> tags = getTags(image);
+            if (tags.isPresent()) {
+                JSONArray jsonArray = tags.get();
+                final int length = jsonArray.size();
+                ArrayList<Version> versions = new ArrayList<Version>(length);
+                for (int position = 0; position < length; ++position) {
+                    String tag = jsonArray.getString(position);
+                    Optional<Version> versionOpt = Version.tryParse(tag);
+                    if (versionOpt.isPresent()) {
+                        versions.add(versionOpt.get());
+                    } else {
+                        log(listener, String.format("Failed to parse %s tag", tag));
+                    }
+                }
+                if (!versions.isEmpty()) {
+                    Version maxVersion = Ordering.<Version>natural().max(versions);
+                    return new Image(image.getNamespace(), image.getRepo(), maxVersion.toString());
+                }
+            }
+
+        } catch (Exception ex) {
+            String msg = String.format(
+                    "Failed to check the latest version of image %s in the remote repo: %s",
+                    image.printIdentifier(),
+                    ex.getMessage());
+            log(listener, msg, ex);
+
+            throw new Exception(msg, ex);
+        }
+
+        return image;
+    }
+
     public boolean isAvailableRemotely(Image image) throws Exception {
         checkArgument(image.getNamespace() != null, "image");
 
         try {
-            URI uri = getRepoUrl(image);
-            Optional<JSONObject> jsonObject = getJsonObject(uri);
-
-            if (!jsonObject.isPresent()) {
-                return false;
-            }
+            Optional<JSONArray> tags = getTags(image);
 
             if (image.getTag() == null) {
                 return true;
             }
 
-            JSONObject repo = jsonObject.get();
-            if (!repo.has("tags")) {
-                return false;
-            }
-
-            JSONArray tags = repo.getJSONArray("tags");
-            return tags.contains(image.getTag());
+            return tags.isPresent() && tags.get().contains(image.getTag());
         } catch (Exception ex) {
             String msg = String.format(
                     "Failed to check if image %s is available in the remote repo: %s",
@@ -61,6 +91,23 @@ public class HubApi {
 
             throw new Exception(msg, ex);
         }
+    }
+
+    private Optional<JSONArray> getTags(Image image) throws Exception {
+        URI uri = getRepoUrl(image);
+        Optional<JSONObject> jsonObject = getJsonObject(uri);
+
+        if (!jsonObject.isPresent()) {
+            return Optional.absent();
+        }
+
+        JSONObject repo = jsonObject.get();
+        if (!repo.has("tags")) {
+            return Optional.absent();
+        }
+
+        JSONArray tags = repo.getJSONArray("tags");
+        return Optional.of(tags);
     }
 
     private Optional<JSONObject> getJsonObject(URI url) throws IOException {
