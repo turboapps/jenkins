@@ -224,6 +224,10 @@ public class SnapshotBuilder extends BaseBuilder {
             environmentBuilder.postSnapshotScriptPath(postSnapshotScriptPath);
         }
 
+        if (resourceDirectoryPath != null) {
+            environmentBuilder.resourceDirectoryPath(resourceDirectoryPath);
+        }
+
         installScriptSettings.configure(environmentBuilder);
 
         return environmentBuilder.build();

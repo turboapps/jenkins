@@ -4,6 +4,7 @@ import com.google.common.base.Optional;
 import lombok.Getter;
 import org.jenkinsci.plugins.spoontrigger.utils.FileUtils;
 
+import java.io.File;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -17,6 +18,7 @@ public class VagrantEnvironment implements Closeable {
     public static final String TOOLS_DIRECTORY = "tools";
     public static final String INSTALL_DIRECTORY = "install";
     public static final String OUTPUT_DIRECTORY = "output";
+    public static final String RESOURCE_DIRECTORY = "resources";
     public static final String PRE_INSTALL_SCRIPT_FILE = "pre_install.ps1";
     public static final String POST_SNAPSHOT_SCRIPT_FILE = "post_snapshot.ps1";
     public static final String XAPPL_FILE = "snapshot.xappl";
@@ -78,6 +80,7 @@ public class VagrantEnvironment implements Closeable {
         private Optional<String> installerArgs = Optional.absent();
         private Optional<String> postSnapshotScriptPath = Optional.absent();
         private Optional<String> preInstallScriptPath = Optional.absent();
+        private Optional<String> resourceDirectoryPath = Optional.absent();
         private boolean ignoreExitCode = false;
 
         public EnvironmentBuilder(Path workingDir) {
@@ -115,6 +118,11 @@ public class VagrantEnvironment implements Closeable {
             return this;
         }
 
+        public EnvironmentBuilder resourceDirectoryPath(String path) {
+            this.resourceDirectoryPath = Optional.of(path);
+            return this;
+        }
+
         public EnvironmentBuilder box(String vagrantBox) {
             this.box = Optional.of(vagrantBox);
             return this;
@@ -132,6 +140,7 @@ public class VagrantEnvironment implements Closeable {
             }
 
             setupToolsDirectory();
+            setupResourceDirectory();
             VagrantFileTemplate.Config vagrantConfig = setupInstallDirectory();
             setupWorkingDirectory(vagrantConfig);
             setupOutputDirectory();
@@ -146,6 +155,21 @@ public class VagrantEnvironment implements Closeable {
             Path xStudioSourcePath = Paths.get(xStudioPath.get());
             Path xStudioDestPath = Paths.get(toolsDir.toString(), XSTUDIO_EXE_FILE);
             copyFile(xStudioSourcePath, xStudioDestPath);
+        }
+
+        private void setupResourceDirectory() {
+            if (!resourceDirectoryPath.isPresent()) {
+                return;
+            }
+
+            File resourceSourceDir = new File(resourceDirectoryPath.get());
+            File resourceDestDir = new File(workingDir.toFile(), RESOURCE_DIRECTORY);
+            try {
+                org.apache.commons.io.FileUtils.copyDirectory(resourceSourceDir, resourceDestDir);
+            } catch (Throwable th) {
+                String msg = String.format("Failed to copy directory with content from %s to %s", resourceSourceDir, resourceDestDir);
+                throw new IllegalStateException(msg, th);
+            }
         }
 
         private VagrantFileTemplate.Config setupInstallDirectory() {
