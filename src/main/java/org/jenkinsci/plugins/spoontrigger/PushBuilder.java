@@ -89,7 +89,7 @@ public class PushBuilder extends BaseBuilder {
         if(this.hubUrls != null) {
             // if multiple hubs specified, push to each one of them
             for(String hubUrl : hubUrlsAsList()) {
-                switchHub(client, hubUrl);
+                switchHub(client, hubUrl, build);
 
                 Pusher pusher = new Pusher(client);
                 pusher.push(build);
@@ -124,7 +124,7 @@ public class PushBuilder extends BaseBuilder {
             return false;
         }
 
-        return isAvailableRemotely(remoteImage, listener);
+        return isAvailableRemotely(remoteImage, build, listener);
     }
 
     private PushConfig cratePushConfig(Image localImage) {

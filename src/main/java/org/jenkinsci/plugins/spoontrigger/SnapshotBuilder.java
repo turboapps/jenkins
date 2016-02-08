@@ -21,6 +21,7 @@ import org.jenkinsci.plugins.spoontrigger.commands.powershell.PowerShellCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.ImportCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.PullCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.xstudio.BuildCommand;
+import org.jenkinsci.plugins.spoontrigger.hub.HubApi;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.scheduledtasks.ScheduledTasksApi;
 import org.jenkinsci.plugins.spoontrigger.snapshot.InstallScriptStrategy;
@@ -51,6 +52,7 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
+import static org.jenkinsci.plugins.spoontrigger.utils.AutoCompletion.suggestDirectories;
 import static org.jenkinsci.plugins.spoontrigger.utils.AutoCompletion.suggestFiles;
 import static org.jenkinsci.plugins.spoontrigger.utils.FileUtils.deleteDirectoryTree;
 import static org.jenkinsci.plugins.spoontrigger.utils.FileUtils.quietDeleteChildren;
@@ -78,6 +80,9 @@ public class SnapshotBuilder extends BaseBuilder {
     private final String postSnapshotScriptPath;
 
     @Getter
+    private final String resourceDirectoryPath;
+
+    @Getter
     private final boolean overwrite;
 
     @Getter
@@ -93,6 +98,7 @@ public class SnapshotBuilder extends BaseBuilder {
             boolean overwrite,
             String preInstallScriptPath,
             String postSnapshotScriptPath,
+            String resourceDirectoryPath,
             Collection<String> dependencies,
             Collection<String> snapshotFilesToDelete,
             InstallScriptSettings installScriptSettings,
@@ -103,6 +109,7 @@ public class SnapshotBuilder extends BaseBuilder {
         this.overwrite = overwrite;
         this.preInstallScriptPath = Util.fixEmptyAndTrim(preInstallScriptPath);
         this.postSnapshotScriptPath = Util.fixEmptyAndTrim(postSnapshotScriptPath);
+        this.resourceDirectoryPath = Util.fixEmpty(resourceDirectoryPath);
         this.dependencies = new ArrayList<String>(dependencies);
         this.snapshotPathsToDelete = new ArrayList<String>(snapshotFilesToDelete);
         this.installScriptSettings = installScriptSettings;
@@ -183,7 +190,7 @@ public class SnapshotBuilder extends BaseBuilder {
             return false;
         }
 
-        return importAsImage.isPresent() && isAvailableRemotely(importAsImage.get(), listener);
+        return importAsImage.isPresent() && isAvailableRemotely(importAsImage.get(), build, listener);
     }
 
     private void takeSnapshot(String workspace, SpoonBuild build, Launcher launcher, BuildListener listener) throws IOException {
@@ -215,6 +222,10 @@ public class SnapshotBuilder extends BaseBuilder {
 
         if (postSnapshotScriptPath != null) {
             environmentBuilder.postSnapshotScriptPath(postSnapshotScriptPath);
+        }
+
+        if (resourceDirectoryPath != null) {
+            environmentBuilder.resourceDirectoryPath(resourceDirectoryPath);
         }
 
         installScriptSettings.configure(environmentBuilder);
@@ -295,7 +306,6 @@ public class SnapshotBuilder extends BaseBuilder {
                 provisionVagrantVm();
                 executePostSnapshotScript();
                 removeFilesFromSnapshot();
-                pullDependencies();
                 buildImage();
                 importImage();
             } catch (Throwable buildError) {
@@ -306,11 +316,9 @@ public class SnapshotBuilder extends BaseBuilder {
             destroyVagrantVm(false);
         }
 
-        private void pullDependencies() {
-            for (String imageName : dependencies) {
-                PullCommand command = PullCommand.builder().image(imageName).build();
-                command.run(commandDriver);
-            }
+        private void pull(Image image) {
+            PullCommand command = PullCommand.builder().image(image.printIdentifier()).build();
+            command.run(commandDriver);
         }
 
         private void executePostSnapshotScript() {
@@ -379,8 +387,15 @@ public class SnapshotBuilder extends BaseBuilder {
                 commandBuilder.startupFilePath(startupFile.get());
             }
 
+            HubApi hubApi = createHubApi(build, listener);
             for (String dependency : dependencies) {
-                commandBuilder.dependency(dependency);
+                Image buildDependency = Image.parse(dependency);
+                Image dependencyToUse = buildDependency.getTag() == null ?
+                        hubApi.getLatestVersion(buildDependency) : buildDependency;
+
+                pull(dependencyToUse);
+
+                commandBuilder.dependency(dependencyToUse.printIdentifier());
             }
 
             BuildCommand command = commandBuilder.build();
@@ -393,8 +408,9 @@ public class SnapshotBuilder extends BaseBuilder {
                     .path(vagrantEnv.getImagePath().toString())
                     .overwrite(overwrite);
 
-            if (importAsImage.isPresent()) {
-                commandBuilder.name(importAsImage.get().printIdentifier());
+            Optional<Image> imageToUse = getOutputImage();
+            if (imageToUse.isPresent()) {
+                commandBuilder.name(imageToUse.get().printIdentifier());
             }
 
             ImportCommand command = commandBuilder.build();
@@ -404,6 +420,20 @@ public class SnapshotBuilder extends BaseBuilder {
             checkState(outputImage.isPresent(), "Failed to find imported image in command output");
 
             build.setOutputImage(outputImage.get());
+        }
+
+        private Optional<Image> getOutputImage() {
+            // load image name from Vagrant working directory, because some snapshot projects extract product version after installation completed
+            // otherwise use image name specified during build setup
+            String vagrantWorkingDirPath = vagrantEnv.getWorkingDir().toString();
+            try {
+                Optional<Image> imageNameOpt = loadImportImageName(vagrantWorkingDirPath);
+                return imageNameOpt.or(importAsImage);
+            } catch (Throwable th) {
+                String errMsg = String.format("Failed to load image name from %s", Paths.get(vagrantWorkingDirPath, IMAGE_NAME_FILE).toString());
+                log(listener, errMsg, th);
+                return importAsImage;
+            }
         }
 
         private void provisionVagrantVm() throws IOException, InterruptedException {
@@ -518,6 +548,7 @@ public class SnapshotBuilder extends BaseBuilder {
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
         public static final String DEFAULT_VAGRANT_BOX = "opentable/win-2012r2-standard-amd64-nocm";
         private static final Validator<File> HOST_FILE_PATH_VALIDATOR;
+        private static final Validator<File> HOST_DIR_PATH_VALIDATOR;
         private static final Validator<String> VAGRANT_DEFAULT_BOX_VALIDATOR;
         private static final Validator<String> VAGRANT_BOX_VALIDATOR;
         private static final Validator<String> VIRTUAL_FILE_PATH_VALIDATOR;
@@ -531,6 +562,11 @@ public class SnapshotBuilder extends BaseBuilder {
             HOST_FILE_PATH_VALIDATOR = Validators.chain(
                     FileValidators.exists(String.format(DOES_NOT_EXIST_S, "File")),
                     FileValidators.isFile(String.format(PATH_NOT_POINT_TO_ITEM_S, "a file")),
+                    FileValidators.isPathAbsolute(PATH_SHOULD_BE_ABSOLUTE, Level.WARNING)
+            );
+            HOST_DIR_PATH_VALIDATOR = Validators.chain(
+                    FileValidators.exists(String.format(DOES_NOT_EXIST_S, "Directory")),
+                    FileValidators.isDirectory(String.format(PATH_NOT_POINT_TO_ITEM_S, "a directory")),
                     FileValidators.isPathAbsolute(PATH_SHOULD_BE_ABSOLUTE, Level.WARNING)
             );
             VIRTUAL_FILE_PATH_VALIDATOR =
@@ -582,6 +618,7 @@ public class SnapshotBuilder extends BaseBuilder {
             }
             String preInstallScriptPath = jsonWrapper.getString("preInstallScriptPath").orNull();
             String postSnapshotScriptPath = jsonWrapper.getString("postSnapshotScriptPath").orNull();
+            String resourceDirectoryPath = jsonWrapper.getString("resourceDirectoryPath").orNull();
             boolean overwrite = jsonWrapper.getBoolean("overwrite").or(Boolean.FALSE);
             Collection<String> dependencies = extractDependencies(jsonWrapper.getString("dependencies").orNull());
             Collection<String> snapshotPathsToDelete = extractVirtualFilePaths(jsonWrapper.getString("snapshotPathsToDelete").orNull());
@@ -594,13 +631,14 @@ public class SnapshotBuilder extends BaseBuilder {
                     overwrite,
                     preInstallScriptPath,
                     postSnapshotScriptPath,
+                    resourceDirectoryPath,
                     dependencies,
                     snapshotPathsToDelete,
                     installSettings,
                     startupFileSettings);
         }
 
-        public FormValidation doCheckHostFilePath(@QueryParameter String value) {
+        public FormValidation doCheckRequiredFilePath(@QueryParameter String value) {
             String filePath = Util.fixEmptyAndTrim(value);
             if (filePath == null) {
                 return FormValidation.error(String.format(REQUIRE_NON_EMPTY_STRING_S, "Parameter"));
@@ -608,12 +646,20 @@ public class SnapshotBuilder extends BaseBuilder {
             return Validators.validate(HOST_FILE_PATH_VALIDATOR, new File(filePath));
         }
 
-        public FormValidation doCheckOptionalScriptPath(@QueryParameter String value) {
+        public FormValidation doCheckOptionalFilePath(@QueryParameter String value) {
             String filePath = Util.fixEmptyAndTrim(value);
             if (filePath == null) {
                 return FormValidation.ok(String.format(IGNORE_PARAMETER, "Parameter"));
             }
             return Validators.validate(HOST_FILE_PATH_VALIDATOR, new File(filePath));
+        }
+
+        public FormValidation doCheckOptionalDirectoryPath(@QueryParameter String value) {
+            String filePath = Util.fixEmptyAndTrim(value);
+            if (filePath == null) {
+                return FormValidation.ok(String.format(IGNORE_PARAMETER, "Parameter"));
+            }
+            return Validators.validate(HOST_DIR_PATH_VALIDATOR, new File(filePath));
         }
 
         public AutoCompletionCandidates doAutoCompleteXStudioPath(@QueryParameter String value) {
@@ -634,6 +680,10 @@ public class SnapshotBuilder extends BaseBuilder {
 
         public AutoCompletionCandidates doAutoCompletePreInstallScriptPath(@QueryParameter String value) {
             return suggestFiles(value);
+        }
+
+        public AutoCompletionCandidates doAutoCompleteResourceDirectoryPath(@QueryParameter String value) {
+            return suggestDirectories(value);
         }
 
         public FormValidation doCheckVirtualFilePath(@QueryParameter String value) {

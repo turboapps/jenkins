@@ -69,6 +69,8 @@ public class LoginBuilder extends BaseBuilder {
             login(client, credentials.get());
         }
 
+        build.setHubUrl(getHubUrl());
+
         return true;
     }
 
