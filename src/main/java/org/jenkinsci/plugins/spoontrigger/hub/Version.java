@@ -44,15 +44,6 @@ public class Version implements Comparable<Version> {
 
     @Override
     public String toString() {
-        StringBuilder builder = new StringBuilder();
-
-        for (int number : numbers) {
-            if (builder.length() > 0) {
-                builder.append(".");
-            }
-            builder.append(number);
-        }
-
         return Joiner.on(".").join(numbers);
     }
 }
