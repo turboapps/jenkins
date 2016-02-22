@@ -26,10 +26,12 @@ import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
 public class HubApi {
 
     private final String hubUrl;
+    private final String hubApiKey;
     private final BuildListener listener;
 
-    public HubApi(String hubUrl, BuildListener listener) {
+    public HubApi(String hubUrl, String hubApiKey, BuildListener listener) {
         this.hubUrl = hubUrl;
+        this.hubApiKey = hubApiKey;
         this.listener = listener;
     }
 
@@ -115,6 +117,7 @@ public class HubApi {
         try {
             HttpGet httpGet = new HttpGet(url);
             httpGet.addHeader("Content-Type", "application/json");
+            httpGet.addHeader("X-Spoon-Hub-Key", hubApiKey);
             CloseableHttpResponse response = httpclient.execute(httpGet);
 
             int code = response.getStatusLine().getStatusCode();

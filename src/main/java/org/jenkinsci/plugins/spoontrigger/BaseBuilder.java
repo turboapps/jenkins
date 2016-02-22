@@ -102,7 +102,11 @@ public abstract class BaseBuilder extends Builder {
     }
 
     public HubApi createHubApi(SpoonBuild build, BuildListener listener) {
-        return new HubApi(build.getHubUrl().or(getHubUrl()), listener);
+        final String hubUrl = build.getHubUrl().or(getHubUrl());
+
+        TurboTool turboInstallation = TurboTool.getDefaultInstallation();
+        final String hubApiKey = turboInstallation.getHubApiKey();
+        return new HubApi(hubUrl, hubApiKey, listener);
     }
 
     public void switchHub(CommandDriver client, String hubUrl, SpoonBuild build) {
