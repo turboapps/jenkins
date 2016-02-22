@@ -8,11 +8,12 @@ import org.junit.Test;
 
 public class HubApiTests {
     private static final String ImageName = "turbobrowsers/turbobase";
+    private static final String HubApiKey = "secret";
 
     @Test
     public void getLatestVersion() throws Exception {
         // given
-        HubApi hubApi = new HubApi("https://stage.turbo.net", new BuildListenerAdapter(TaskListener.NULL));
+        HubApi hubApi = new HubApi("https://stage.turbo.net", HubApiKey, new BuildListenerAdapter(TaskListener.NULL));
         Image image = Image.parse(ImageName);
 
         // when
