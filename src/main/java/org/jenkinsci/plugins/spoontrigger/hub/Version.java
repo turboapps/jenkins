@@ -8,6 +8,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Version implements Comparable<Version> {
+
+    public static final Version EMPTY = new Version(new ArrayList<Integer>());
+
     private static final Pattern VERSION_PATTERN = Pattern.compile("^\\d+(?:\\.\\d+)*$");
 
     private final ArrayList<Integer> numbers;
@@ -30,6 +33,10 @@ public class Version implements Comparable<Version> {
         this.numbers = numbers;
     }
 
+    public int getMajor() {
+        return getSegment(0);
+    }
+
     @Override
     public int compareTo(Version other) {
         final int length = Math.min(numbers.size(), other.numbers.size());
@@ -45,5 +52,12 @@ public class Version implements Comparable<Version> {
     @Override
     public String toString() {
         return Joiner.on(".").join(numbers);
+    }
+
+    private int getSegment(int segment) {
+        if (segment < numbers.size()) {
+            return numbers.get(segment);
+        }
+        return 0;
     }
 }

@@ -14,7 +14,10 @@ import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+import org.jenkinsci.plugins.spoontrigger.SpoonBuild;
+import org.jenkinsci.plugins.spoontrigger.TurboTool;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -25,9 +28,23 @@ import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
 
 public class HubApi {
 
+    public static final String DEFAULT_HUB_URL = "https://turbo.net";
+
     private final String hubUrl;
     private final String hubApiKey;
     private final BuildListener listener;
+
+    public static HubApi create(SpoonBuild build, BuildListener listener) {
+        return create(build, listener, null);
+    }
+
+    public static HubApi create(SpoonBuild build, BuildListener listener, @Nullable String defaultHubUrl) {
+        final String hubUrl = getHubUrl(build, defaultHubUrl);
+
+        TurboTool turboInstallation = TurboTool.getDefaultInstallation();
+        final String hubApiKey = turboInstallation.getHubApiKey();
+        return new HubApi(hubUrl, hubApiKey, listener);
+    }
 
     public HubApi(String hubUrl, String hubApiKey, BuildListener listener) {
         this.hubUrl = hubUrl;
@@ -93,6 +110,17 @@ public class HubApi {
 
             throw new Exception(msg, ex);
         }
+    }
+
+    private static String getHubUrl(SpoonBuild build, @Nullable String defaultHubUrl) {
+        Optional<String> hubUrlOpt = build.getHubUrl();
+        if (hubUrlOpt.isPresent()) {
+            return hubUrlOpt.get();
+        }
+        if (defaultHubUrl != null) {
+            return defaultHubUrl;
+        }
+        return DEFAULT_HUB_URL;
     }
 
     private Optional<JSONArray> getTags(Image image) throws Exception {

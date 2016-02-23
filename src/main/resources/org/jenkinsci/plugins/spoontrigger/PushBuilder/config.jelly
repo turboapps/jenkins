@@ -32,6 +32,9 @@
                                 checkUrl="'descriptorByName/PushBuilder/checkDateFormat?value='+escape(this.value)"/>
                     </f:entry>
                 </f:optionalBlock>
+                <f:optionalBlock title="Increment version number" field="incrementVersion" inline="true"
+                    checked="${instance.incrementVersion}">
+                </f:optionalBlock>
             </f:advanced>
         </f:radioBlock>
     </f:entry>

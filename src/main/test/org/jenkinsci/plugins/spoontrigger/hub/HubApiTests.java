@@ -7,13 +7,17 @@ import org.junit.Assert;
 import org.junit.Test;
 
 public class HubApiTests {
-    private static final String ImageName = "turbobrowsers/turbobase";
     private static final String HubApiKey = "secret";
+    private static final String ImageName = "turbobrowsers/turbobase";
+
+    public static HubApi createHubApi(String hubUrl) {
+        return new HubApi(hubUrl, HubApiKey, new BuildListenerAdapter(TaskListener.NULL));
+    }
 
     @Test
     public void getLatestVersion() throws Exception {
         // given
-        HubApi hubApi = new HubApi("https://stage.turbo.net", HubApiKey, new BuildListenerAdapter(TaskListener.NULL));
+        HubApi hubApi = createHubApi("https://stage.turbo.net");
         Image image = Image.parse(ImageName);
 
         // when

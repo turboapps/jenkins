@@ -10,8 +10,13 @@ public class PushConfig {
     private Image localImage;
     private String remoteImageName;
     private String dateFormat;
-    private boolean appendDate;
+    private TagGenerationStrategy tagGenerationStrategy;
     private String organization;
     private boolean overwriteOrganization;
     private String hubUrls;
+
+    public Image getRemoteImage() {
+        return Image.parse(remoteImageName);
+    }
 }
+
