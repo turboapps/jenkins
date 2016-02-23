@@ -1,7 +1,5 @@
 package org.jenkinsci.plugins.spoontrigger.hub;
 
-import hudson.model.TaskListener;
-import jenkins.util.BuildListenerAdapter;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -24,8 +22,7 @@ public class HubApiParametrizedTests {
     public HubApiParametrizedTests(String imageName, boolean shouldExist) {
         this.image = Image.parse(imageName);
         this.shouldExist = shouldExist;
-
-        this.hubApi = new HubApi("https://turbo.net", new BuildListenerAdapter(TaskListener.NULL));
+        this.hubApi = HubApiTests.createHubApi("https://turbo.net");
     }
 
     @Parameterized.Parameters

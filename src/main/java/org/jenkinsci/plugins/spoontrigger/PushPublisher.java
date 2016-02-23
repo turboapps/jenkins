@@ -18,6 +18,7 @@ import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.push.PushConfig;
 import org.jenkinsci.plugins.spoontrigger.push.RemoteImageNameStrategy;
+import org.jenkinsci.plugins.spoontrigger.push.TagGenerationStrategy;
 import org.jenkinsci.plugins.spoontrigger.validation.Level;
 import org.jenkinsci.plugins.spoontrigger.validation.StringValidators;
 import org.jenkinsci.plugins.spoontrigger.validation.Validator;
@@ -72,16 +73,16 @@ public class PushPublisher extends SpoonBasePublisher {
     public void publish(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) throws IllegalStateException {
         SpoonBuild build = (SpoonBuild) abstractBuild;
         CommandDriver client = super.createClient(build, launcher, listener);
-        PushCommand pushCmd = this.createPushCommand(build);
+        PushCommand pushCmd = this.createPushCommand(build, listener);
         pushCmd.run(client);
     }
 
-    private PushCommand createPushCommand(SpoonBuild spoonBuild) {
+    private PushCommand createPushCommand(SpoonBuild spoonBuild, BuildListener listener) {
         Image localImage = getImage().get();
         PushCommand.CommandBuilder cmdBuilder = PushCommand.builder().image(localImage.printIdentifier());
 
         PushConfig pushConfig = cratePushConfig(localImage);
-        Image remoteImage = remoteImageStrategy.getRemoteImage(pushConfig, spoonBuild);
+        Image remoteImage = remoteImageStrategy.getRemoteImage(pushConfig, spoonBuild, listener);
         if (!remoteImage.equals(localImage)) {
             cmdBuilder.remoteImage(remoteImage.printIdentifier());
         }
@@ -90,11 +91,12 @@ public class PushPublisher extends SpoonBasePublisher {
     }
 
     private PushConfig cratePushConfig(Image localImage) {
+        final TagGenerationStrategy tagGenerationStrategy = appendDate ? TagGenerationStrategy.AppendDate : TagGenerationStrategy.Identity;
         return new PushConfig(
                 localImage,
                 remoteImageName,
                 dateFormat,
-                appendDate,
+                tagGenerationStrategy,
                 organization,
                 overwriteOrganization,
                 NO_HUB_URLS_DEFINED);

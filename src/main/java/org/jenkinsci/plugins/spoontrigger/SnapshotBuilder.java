@@ -387,7 +387,7 @@ public class SnapshotBuilder extends BaseBuilder {
                 commandBuilder.startupFilePath(startupFile.get());
             }
 
-            HubApi hubApi = createHubApi(build, listener);
+            HubApi hubApi = HubApi.create(build, listener);
             for (String dependency : dependencies) {
                 Image buildDependency = Image.parse(dependency);
                 Image dependencyToUse = buildDependency.getTag() == null ?

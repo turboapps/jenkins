@@ -18,6 +18,7 @@ import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.push.PushConfig;
 import org.jenkinsci.plugins.spoontrigger.push.Pusher;
 import org.jenkinsci.plugins.spoontrigger.push.RemoteImageNameStrategy;
+import org.jenkinsci.plugins.spoontrigger.push.TagGenerationStrategy;
 import org.jenkinsci.plugins.spoontrigger.validation.Level;
 import org.jenkinsci.plugins.spoontrigger.validation.StringValidators;
 import org.jenkinsci.plugins.spoontrigger.validation.Validator;
@@ -50,6 +51,8 @@ public class PushBuilder extends BaseBuilder {
     @Getter
     private final boolean appendDate;
     @Getter
+    private final boolean incrementVersion;
+    @Getter
     private final boolean overwriteOrganization;
     @Getter
     private final String hubUrls;
@@ -57,7 +60,7 @@ public class PushBuilder extends BaseBuilder {
     @DataBoundConstructor
     public PushBuilder(@Nullable RemoteImageNameStrategy remoteImageStrategy, @Nullable String hubUrls,
                        @Nullable String organization, boolean overwriteOrganization,
-                       @Nullable String remoteImageName, @Nullable String dateFormat, boolean appendDate) {
+                       @Nullable String remoteImageName, @Nullable String dateFormat, boolean appendDate, boolean incrementVersion) {
         this.remoteImageStrategy = (remoteImageStrategy == null) ? RemoteImageNameStrategy.DO_NOT_USE : remoteImageStrategy;
         this.hubUrls = Util.fixEmptyAndTrim(hubUrls);
         this.organization = Util.fixEmptyAndTrim(organization);
@@ -65,6 +68,7 @@ public class PushBuilder extends BaseBuilder {
         this.remoteImageName = Util.fixEmptyAndTrim(remoteImageName);
         this.dateFormat = Util.fixEmptyAndTrim(dateFormat);
         this.appendDate = appendDate;
+        this.incrementVersion = incrementVersion;
     }
 
     @Override
@@ -74,7 +78,7 @@ public class PushBuilder extends BaseBuilder {
 
         PushConfig pushConfig = cratePushConfig(localImage);
 
-        Image remoteImage = remoteImageStrategy.getRemoteImage(pushConfig, build);
+        Image remoteImage = remoteImageStrategy.getRemoteImage(pushConfig, build, listener);
         if (shouldAbort(remoteImage, build, listener)) {
             build.setResult(Result.ABORTED);
             return false;
@@ -86,9 +90,9 @@ public class PushBuilder extends BaseBuilder {
 
         CommandDriver client = CommandDriver.builder(build).launcher(launcher).listener(listener).build();
 
-        if(this.hubUrls != null) {
+        if (this.hubUrls != null) {
             // if multiple hubs specified, push to each one of them
-            for(String hubUrl : hubUrlsAsList()) {
+            for (String hubUrl : hubUrlsAsList()) {
                 switchHub(client, hubUrl, build);
 
                 Pusher pusher = new Pusher(client);
@@ -100,14 +104,13 @@ public class PushBuilder extends BaseBuilder {
             pusher.push(build);
         }
 
-
         return true;
     }
 
     private List<String> hubUrlsAsList() {
         List<String> result = new ArrayList<String>();
-        if(this.hubUrls != null) {
-            for(String url: this.hubUrls.split(",")) {
+        if (this.hubUrls != null) {
+            for (String url : this.hubUrls.split(",")) {
                 result.add(url.trim());
             }
         }
@@ -128,14 +131,25 @@ public class PushBuilder extends BaseBuilder {
     }
 
     private PushConfig cratePushConfig(Image localImage) {
+        final TagGenerationStrategy tagGenerationStrategy = getTagGenerationStrategy();
         return new PushConfig(
                 localImage,
                 remoteImageName,
                 dateFormat,
-                appendDate,
+                tagGenerationStrategy,
                 organization,
                 overwriteOrganization,
                 hubUrls);
+    }
+
+    private TagGenerationStrategy getTagGenerationStrategy() {
+        if (incrementVersion) {
+            return TagGenerationStrategy.IncrementVersion;
+        }
+        if (appendDate) {
+            return TagGenerationStrategy.AppendDate;
+        }
+        return TagGenerationStrategy.Identity;
     }
 
     @Extension
@@ -184,6 +198,7 @@ public class PushBuilder extends BaseBuilder {
                 boolean appendDate = false;
                 String organization = null;
                 boolean overwriteOrganization = false;
+                boolean incrementVersion = false;
 
                 if (pushJSON != null && !pushJSON.isNullObject()) {
                     String remoteImageStrategyName = pushJSON.getString("value");
@@ -194,9 +209,10 @@ public class PushBuilder extends BaseBuilder {
                     remoteImageName = getKeyOrDefault(pushJSON, "remoteImageName");
                     dateFormat = getKeyOrDefault(pushJSON, "dateFormat");
                     appendDate = getBoolOrDefault(pushJSON, "appendDate");
+                    incrementVersion = getBoolOrDefault(pushJSON, "incrementVersion");
                 }
 
-                return new PushBuilder(remoteImageStrategy, hubUrls, organization, overwriteOrganization, remoteImageName, dateFormat, appendDate);
+                return new PushBuilder(remoteImageStrategy, hubUrls, organization, overwriteOrganization, remoteImageName, dateFormat, appendDate, incrementVersion);
             } catch (JSONException ex) {
                 throw new IllegalStateException("Error while parsing data form", ex);
             }

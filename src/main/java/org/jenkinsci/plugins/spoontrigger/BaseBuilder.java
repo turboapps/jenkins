@@ -71,7 +71,7 @@ public abstract class BaseBuilder extends Builder {
         }
 
         try {
-            HubApi hubApi = createHubApi(build, listener);
+            HubApi hubApi = HubApi.create(build, listener, hubUrl);
             boolean result = hubApi.isAvailableRemotely(remoteImage);
 
             if (result) {
@@ -87,26 +87,6 @@ public abstract class BaseBuilder extends Builder {
             log(listener, msg, ex);
             return false;
         }
-    }
-
-    protected String getHubUrl() {
-        if (hubUrl == null) {
-            return getDefaultHubUrl();
-        } else {
-            return hubUrl;
-        }
-    }
-
-    protected String getDefaultHubUrl() {
-        return "https://turbo.net";
-    }
-
-    public HubApi createHubApi(SpoonBuild build, BuildListener listener) {
-        final String hubUrl = build.getHubUrl().or(getHubUrl());
-
-        TurboTool turboInstallation = TurboTool.getDefaultInstallation();
-        final String hubApiKey = turboInstallation.getHubApiKey();
-        return new HubApi(hubUrl, hubApiKey, listener);
     }
 
     public void switchHub(CommandDriver client, String hubUrl, SpoonBuild build) {

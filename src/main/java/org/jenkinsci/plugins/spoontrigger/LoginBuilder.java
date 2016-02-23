@@ -18,6 +18,7 @@ import lombok.Getter;
 import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.ConfigCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.LoginCommand;
+import org.jenkinsci.plugins.spoontrigger.hub.HubApi;
 import org.jenkinsci.plugins.spoontrigger.utils.Credentials;
 import org.jenkinsci.plugins.spoontrigger.validation.Level;
 import org.jenkinsci.plugins.spoontrigger.validation.StringValidators;
@@ -74,7 +75,6 @@ public class LoginBuilder extends BaseBuilder {
         return true;
     }
 
-    @Override
     public String getHubUrl() {
         if (hubUrlToUse != null) {
             return hubUrlToUse;
@@ -82,7 +82,7 @@ public class LoginBuilder extends BaseBuilder {
         if (hubUrl != null) {
             return hubUrl;
         }
-        return super.getHubUrl();
+        return HubApi.DEFAULT_HUB_URL;
     }
 
     private void switchHub(CommandDriver client) {
