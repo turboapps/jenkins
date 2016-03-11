@@ -10,6 +10,8 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.*;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.utils.FileUtils.quietDeleteDirectoryTreeIfExists;
@@ -75,7 +77,7 @@ public class VagrantEnvironment implements Closeable {
 
         private Optional<String> xStudioPath = Optional.absent();
         private Optional<String> box = Optional.absent();
-        private Optional<String> installerPath = Optional.absent();
+        private Optional<Collection<Path>> installerPaths = Optional.absent();
         private Optional<String> installScriptPath = Optional.absent();
         private Optional<String> installerArgs = Optional.absent();
         private Optional<String> postSnapshotScriptPath = Optional.absent();
@@ -92,8 +94,8 @@ public class VagrantEnvironment implements Closeable {
             return this;
         }
 
-        public EnvironmentBuilder installerPath(String path) {
-            this.installerPath = Optional.of(path);
+        public EnvironmentBuilder installerPaths(Collection<Path> paths) {
+            this.installerPaths = Optional.of(paths);
             return this;
         }
 
@@ -133,7 +135,7 @@ public class VagrantEnvironment implements Closeable {
             checkState(xStudioPath.isPresent(), "XStudioPath not defined");
 
             if (installerArgs.isPresent()) {
-                checkState(installerPath.isPresent(), "InstallerPath not defined");
+                checkState(installerPaths.isPresent(), "InstallerPaths not defined");
                 checkState(!installScriptPath.isPresent(), "Only one parameter: `installerArgs` or `installScriptPath` must be defined");
             } else {
                 checkState(installScriptPath.isPresent(), "InstallerScriptPath not defined");
@@ -194,18 +196,20 @@ public class VagrantEnvironment implements Closeable {
                 config = new VagrantFileTemplate.Config(preInstallScriptFileName, installScriptFileName, box.get());
             }
 
-            if (installerPath.isPresent()) {
-                Path installerSourcePath = Paths.get(installerPath.get());
-                String installerFileName = installerSourcePath.getFileName().toString();
-                Path installerDestPath = Paths.get(workingDir.toString(), INSTALL_DIRECTORY, installerFileName);
-                copyFile(installerSourcePath, installerDestPath);
+            if (installerPaths.isPresent()) {
+                Collection<Path> installerPaths = this.installerPaths.get();
+                for(Path installerSourcePath : installerPaths) {
+                    String installerFileName = installerSourcePath.getFileName().toString();
+                    Path installerDestPath = Paths.get(workingDir.toString(), INSTALL_DIRECTORY, installerFileName);
+                    copyFile(installerSourcePath, installerDestPath);
+                }
 
                 if (installerArgs.isPresent()) {
                     Path installerScriptPath = Paths.get(installDir.toString(), INSTALL_SCRIPT_FILE);
                     try {
                         Files.write(
                                 installerScriptPath,
-                                generateScriptContent(installerDestPath),
+                                generateScriptContent(installerPaths),
                                 Charset.defaultCharset(),
                                 StandardOpenOption.CREATE,
                                 StandardOpenOption.TRUNCATE_EXISTING,
@@ -239,20 +243,24 @@ public class VagrantEnvironment implements Closeable {
             }
         }
 
-        private ArrayList<String> generateScriptContent(Path installerFile) {
-            ArrayList<String> scriptContent = new ArrayList<String>(2);
-            StringBuilder commandBuilder = new StringBuilder("& ");
+        private ArrayList<String> generateScriptContent(Collection<Path> installerPaths) {
+            ArrayList<String> scriptContent = new ArrayList<String>(installerPaths.size() + 1);
 
-            if ("msi".equals(FileUtils.getExtension(installerFile))) {
-                commandBuilder.append("msiexec /i ");
+            for(Path installerPath : installerPaths) {
+                StringBuilder commandBuilder = new StringBuilder("& ");
+
+                if ("msi".equals(FileUtils.getExtension(installerPath))) {
+                    commandBuilder.append("msiexec /i ");
+                }
+
+                commandBuilder.append(Paths.get(INSTALLER_DIRECTORY_ON_GUEST_MACHINE, installerPath.getFileName().toString()));
+                commandBuilder.append(" ");
+                commandBuilder.append(installerArgs.get());
+                commandBuilder.append(" | Write-Host");
+
+                scriptContent.add(commandBuilder.toString());
             }
 
-            commandBuilder.append(Paths.get(INSTALLER_DIRECTORY_ON_GUEST_MACHINE, installerFile.getFileName().toString()));
-            commandBuilder.append(" ");
-            commandBuilder.append(installerArgs.get());
-            commandBuilder.append(" | Write-Host");
-
-            scriptContent.add(commandBuilder.toString());
             if (ignoreExitCode) {
                 scriptContent.add("exit 0");
             }

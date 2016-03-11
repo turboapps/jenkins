@@ -47,6 +47,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -211,9 +212,9 @@ public class SnapshotBuilder extends BaseBuilder {
                 .box(vagrantBox)
                 .xStudioPath(xStudioPath);
 
-        Optional<String> installerPath = getInstallerPath(buildWorkspace);
-        if (installerPath.isPresent()) {
-            environmentBuilder.installerPath(installerPath.get());
+        List<Path> installerPaths = getInstallerPaths(buildWorkspace);
+        if (!installerPaths.isEmpty()) {
+            environmentBuilder.installerPaths(installerPaths);
         }
 
         if (preInstallScriptPath != null) {
@@ -233,30 +234,20 @@ public class SnapshotBuilder extends BaseBuilder {
         return environmentBuilder.build();
     }
 
-    private Optional<String> getInstallerPath(String buildWorkspace) {
+    private List<Path> getInstallerPaths(String buildWorkspace) {
         File workspace = new File(buildWorkspace);
         File[] workspaceFiles = workspace.listFiles();
         checkState(workspaceFiles != null, "Failed to list files in %s directory", buildWorkspace);
 
-        File installerFile = null;
+        List<Path> installerPaths = new ArrayList<Path>();
         for (File workspaceFile : workspaceFiles) {
             final String extension = FileUtils.getExtension(workspaceFile.toPath());
             if ("exe".equals(extension) || "msi".equals(extension)) {
-                if (installerFile != null) {
-                    throw new IllegalStateException(
-                            String.format("Workspace %s contains too many application installers: [%s,%s]",
-                                    workspace,
-                                    installerFile.getAbsolutePath(),
-                                    workspaceFile.getAbsoluteFile()));
-                }
-                installerFile = workspaceFile;
+                installerPaths.add(workspaceFile.toPath());
             }
         }
 
-        if (installerFile != null) {
-            return Optional.of(installerFile.getAbsolutePath());
-        }
-        return Optional.absent();
+        return installerPaths;
     }
 
     private Optional<Image> loadImportImageName(String workspacePath) throws IOException {
