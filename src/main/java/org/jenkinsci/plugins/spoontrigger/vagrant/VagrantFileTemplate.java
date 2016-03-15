@@ -5,6 +5,7 @@ import com.google.common.base.Joiner;
 import com.google.common.io.Resources;
 import hudson.util.ArgumentListBuilder;
 import lombok.Data;
+import org.jenkinsci.plugins.spoontrigger.SpoonBuild;
 import org.stringtemplate.v4.ST;
 import org.stringtemplate.v4.misc.ErrorBuffer;
 import org.stringtemplate.v4.misc.STMessage;
@@ -105,7 +106,7 @@ public class VagrantFileTemplate {
     }
 
     private ST getTemplate() throws IOException {
-        URL resourceId = Resources.getResource(getClass(), VAGRANT_FILE_TEMPLATE_RESOURCE_ID);
+        URL resourceId = Resources.getResource(SpoonBuild.class, "Templates/" + VAGRANT_FILE_TEMPLATE_RESOURCE_ID);
         String template = Joiner.on(System.lineSeparator()).join(Resources.readLines(resourceId, CHARSET));
         return new ST(template, '$', '$');
     }
