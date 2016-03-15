@@ -72,6 +72,7 @@ public final class BuildCommand extends FilterOutputCommand {
         private Optional<FilePath> script = Optional.absent();
         private Optional<String> vmVersion = Optional.absent();
         private Optional<String> containerWorkingDir = Optional.absent();
+        private Optional<String> routeFile = Optional.absent();
         private Optional<String> sourceContainer = Optional.absent();
         private Optional<String> sourceFolder = Optional.absent();
         private Optional<String> targetFolder = Optional.absent();
@@ -124,6 +125,13 @@ public final class BuildCommand extends FilterOutputCommand {
             return this;
         }
 
+        public CommandBuilder routeFile(String routeFile) {
+            checkArgument(Util.fixEmptyAndTrim(routeFile) != null, REQUIRE_NON_EMPTY_STRING_S, "routeFile");
+
+            this.routeFile = Optional.of(routeFile);
+            return this;
+        }
+
         public CommandBuilder diagnostic(boolean diagnostic) {
             this.diagnostic = diagnostic;
             return this;
@@ -156,6 +164,11 @@ public final class BuildCommand extends FilterOutputCommand {
             if (this.containerWorkingDir.isPresent()) {
                 buildArgs.add("--working-dir");
                 buildArgs.addQuoted(this.containerWorkingDir.get());
+            }
+
+            if (this.routeFile.isPresent()) {
+                buildArgs.add("--route-file");
+                buildArgs.addQuoted(this.routeFile.get());
             }
 
             if (this.sourceFolder.isPresent()) {

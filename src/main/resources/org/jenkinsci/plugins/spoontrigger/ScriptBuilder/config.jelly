@@ -19,6 +19,9 @@
         <f:entry title="Container working directory" field="containerWorkingDir">
             <f:textbox checkUrl="'descriptorByName/ScriptBuilder/checkContainerWorkingDir?value='+escape(this.value)"/>
         </f:entry>
+        <f:entry title="Route file" field="routeFile">
+            <f:textbox checkUrl="'descriptorByName/ScriptBuilder/checkRouteFile?value='+escape(this.value)"/>
+        </f:entry>
         <f:optionalBlock title="Mount" name="mountSettings" checked="${instance.mountSettings ne null}">
             <f:entry title="Source container" field="sourceContainer">
                 <f:textbox checkUrl="'descriptorByName/ScriptBuilder/checkSourceContainer?value='+escape(this.value)"/>

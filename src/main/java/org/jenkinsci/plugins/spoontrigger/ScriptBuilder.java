@@ -47,6 +47,10 @@ public class ScriptBuilder extends LoginBuilder {
 
     @Nullable
     @Getter
+    private final String routeFile;
+
+    @Nullable
+    @Getter
     private final MountSettings mountSettings;
 
     @Getter
@@ -59,6 +63,7 @@ public class ScriptBuilder extends LoginBuilder {
     @DataBoundConstructor
     public ScriptBuilder(String scriptFilePath, String credentialsId, String hubUrl, String imageName,
                          String vmVersion, String containerWorkingDir, @Nullable MountSettings mountSettings,
+                         @Nullable String routeFile,
                          boolean noBase, boolean overwrite, boolean diagnostic) {
         super(credentialsId, hubUrl);
 
@@ -66,6 +71,7 @@ public class ScriptBuilder extends LoginBuilder {
         this.imageName = Util.fixEmptyAndTrim(imageName);
         this.vmVersion = Util.fixEmptyAndTrim(vmVersion);
         this.containerWorkingDir = Util.fixEmptyAndTrim(containerWorkingDir);
+        this.routeFile =  Util.fixEmptyAndTrim(routeFile);
         this.mountSettings = mountSettings;
         this.noBase = noBase;
         this.overwrite = overwrite;
@@ -166,6 +172,10 @@ public class ScriptBuilder extends LoginBuilder {
             cmdBuilder.containerWorkingDir(this.containerWorkingDir);
         }
 
+        if(this.routeFile != null) {
+            cmdBuilder.routeFile(this.routeFile);
+        }
+
         if (this.mountSettings != null) {
             this.mountSettings.fill(cmdBuilder);
         }
@@ -240,14 +250,14 @@ public class ScriptBuilder extends LoginBuilder {
 
         private static final Validator<String> IGNORE_NULL_VALIDATOR;
         private static final Validator<String> SCRIPT_FILE_PATH_STRING_VALIDATOR;
-        private static final Validator<File> SCRIPT_FILE_PATH_FILE_VALIDATOR;
+        private static final Validator<File> FILE_PATH_FILE_VALIDATOR;
         private static final Validator<String> VERSION_NUMBER_VALIDATOR;
         private static final Validator<String> NULL_OR_SINGLE_WORD_VALIDATOR;
 
         static {
             IGNORE_NULL_VALIDATOR = StringValidators.isNotNull(IGNORE_PARAMETER, Level.OK);
             SCRIPT_FILE_PATH_STRING_VALIDATOR = StringValidators.isNotNull(REQUIRED_PARAMETER, Level.ERROR);
-            SCRIPT_FILE_PATH_FILE_VALIDATOR = Validators.chain(
+            FILE_PATH_FILE_VALIDATOR = Validators.chain(
                     FileValidators.isPathAbsolute(EMPTY, Level.OK),
                     FileValidators.exists(String.format(DOES_NOT_EXIST_S, "File")),
                     FileValidators.isFile(String.format(PATH_NOT_POINT_TO_ITEM_S, "a file"))
@@ -274,7 +284,22 @@ public class ScriptBuilder extends LoginBuilder {
             try {
                 SCRIPT_FILE_PATH_STRING_VALIDATOR.validate(filePath);
                 File scriptFile = new File(filePath);
-                SCRIPT_FILE_PATH_FILE_VALIDATOR.validate(scriptFile);
+                FILE_PATH_FILE_VALIDATOR.validate(scriptFile);
+                return FormValidation.ok();
+            } catch (ValidationException ex) {
+                return ex.getFailureMessage();
+            }
+        }
+
+        public FormValidation doCheckRouteFile(@QueryParameter String value) {
+            String filePath = Util.fixEmptyAndTrim(value);
+            if (filePath == null) {
+                return Validators.validate(IGNORE_NULL_VALIDATOR, filePath);
+            }
+
+            try {
+                File scriptFile = new File(filePath);
+                FILE_PATH_FILE_VALIDATOR.validate(scriptFile);
                 return FormValidation.ok();
             } catch (ValidationException ex) {
                 return ex.getFailureMessage();
@@ -282,6 +307,10 @@ public class ScriptBuilder extends LoginBuilder {
         }
 
         public AutoCompletionCandidates doAutoCompleteScriptFilePath(@QueryParameter String value) {
+            return AutoCompletion.suggestFiles(value);
+        }
+
+        public AutoCompletionCandidates doAutoCompleteRouteFile(@QueryParameter String value) {
             return AutoCompletion.suggestFiles(value);
         }
 
