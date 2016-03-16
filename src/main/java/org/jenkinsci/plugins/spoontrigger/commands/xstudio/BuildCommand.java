@@ -67,7 +67,7 @@ public class BuildCommand extends VoidCommand {
 
             if (startupFilePath.isPresent()) {
                 args.add("/startupfile")
-                        .add(startupFilePath.get());
+                        .addQuoted(startupFilePath.get());
             }
 
             if (licensePath.isPresent()) {
