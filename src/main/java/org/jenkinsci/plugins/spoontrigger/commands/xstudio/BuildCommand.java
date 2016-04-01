@@ -62,7 +62,9 @@ public class BuildCommand extends VoidCommand {
             ArgumentListBuilder args = new ArgumentListBuilder(xStudioPath)
                     .add(xapplPath.get())
                     .add("/o")
-                    .add(imagePath.get());
+                    .add(imagePath.get())
+                    .add("/component")
+                    .add("/uncompressed");
 
 
             if (startupFilePath.isPresent()) {
