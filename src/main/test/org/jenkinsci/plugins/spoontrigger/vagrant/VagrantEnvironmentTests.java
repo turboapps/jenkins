@@ -1,5 +1,6 @@
 package org.jenkinsci.plugins.spoontrigger.vagrant;
 
+import com.google.common.collect.Lists;
 import junit.framework.Assert;
 import org.jenkinsci.plugins.spoontrigger.SnapshotBuilder;
 import org.junit.Rule;
@@ -35,7 +36,7 @@ public class VagrantEnvironmentTests {
         VagrantEnvironment environment = builder.generateInstallScript("/S", true)
                 .box(boxName)
                 .xStudioPath(getTempPath(XSTUDIO_EXE_FILE))
-                .installerPath(getTempPath(INSTALLER_EXE_FILE))
+                .installerPaths(Lists.newArrayList(Paths.get(getTempPath(INSTALLER_EXE_FILE))))
                 .build();
 
         // then
