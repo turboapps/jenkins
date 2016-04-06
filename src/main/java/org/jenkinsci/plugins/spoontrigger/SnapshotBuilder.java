@@ -55,7 +55,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
 import static org.jenkinsci.plugins.spoontrigger.utils.AutoCompletion.suggestDirectories;
 import static org.jenkinsci.plugins.spoontrigger.utils.AutoCompletion.suggestFiles;
-import static org.jenkinsci.plugins.spoontrigger.utils.FileUtils.deleteDirectoryTree;
+import static org.jenkinsci.plugins.spoontrigger.utils.FileUtils.deleteDirectoryTreeRetryOnFailure;
 import static org.jenkinsci.plugins.spoontrigger.utils.FileUtils.quietDeleteChildren;
 import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
 
@@ -194,7 +194,7 @@ public class SnapshotBuilder extends BaseBuilder {
         return importAsImage.isPresent() && isAvailableRemotely(importAsImage.get(), build, listener);
     }
 
-    private void takeSnapshot(String workspace, SpoonBuild build, Launcher launcher, BuildListener listener) throws IOException {
+    private void takeSnapshot(String workspace, SpoonBuild build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
         VagrantEnvironment vagrantEnv = createVagrantEnvironment(build, workspace);
         try {
             SnapshotTaker snapshotTaker = new SnapshotTaker(build, vagrantEnv, launcher, listener);
@@ -202,7 +202,7 @@ public class SnapshotBuilder extends BaseBuilder {
         } finally {
             // Vagrant working dir was moved to temp, because the Vagrant process running as a scheduled task
             // does not have write access to the build workspace in Program Files
-            deleteDirectoryTree(vagrantEnv.getWorkingDir());
+            deleteDirectoryTreeRetryOnFailure(vagrantEnv.getWorkingDir(), listener);
         }
     }
 
