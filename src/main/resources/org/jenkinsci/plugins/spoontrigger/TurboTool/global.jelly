@@ -4,5 +4,8 @@
     <f:entry name="hubApiKey" title="Hub API Key" field="hubApiKey">
         <f:password name="hubApiKey" />
     </f:entry>
+    <f:entry name="screenshotDir" title="Screenshot Directory" field="screenshotDir">
+        <f:textbox name="screenshotDir"/>
+    </f:entry>
   </f:section>
 </j:jelly>
