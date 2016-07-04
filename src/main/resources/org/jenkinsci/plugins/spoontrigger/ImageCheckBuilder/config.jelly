@@ -1,0 +1,23 @@
+<?jelly escape-by-default='true'?>
+<j:jelly
+        xmlns:j="jelly:core"
+        xmlns:f="/lib/form"
+        xmlns:c="/lib/credentials">
+    <f:advanced>
+        <f:entry title="Bootstrap duration" field="bootstrapDuration">
+            <f:textbox checkUrl="'descriptorByName/ImageCheckBuilder/checkTimeSpan?value='+escape(this.value)"/>
+        </f:entry>
+        <f:entry title="Launch duration" field="launchDuration">
+            <f:textbox checkUrl="'descriptorByName/ImageCheckBuilder/checkTimeSpan?value='+escape(this.value)"/>
+        </f:entry>
+        <f:entry title="Exit code" field="exitCode">
+            <f:textbox checkUrl="'descriptorByName/ImageCheckBuilder/checkExitCode?value='+escape(this.value)"/>
+        </f:entry>
+        <f:entry title="Console application" field="isConsoleApp">
+            <f:checkbox/>
+        </f:entry>
+        <f:entry title="Has child processes" field="hasChildProcesses">
+            <f:checkbox/>
+        </f:entry>
+    </f:advanced>
+</j:jelly>

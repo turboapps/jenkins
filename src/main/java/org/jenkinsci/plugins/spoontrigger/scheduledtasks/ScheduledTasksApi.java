@@ -161,7 +161,8 @@ public class ScheduledTasksApi {
     }
 
     private int executeCommand(ArgumentListBuilder argumentList, OutputStream out) throws IOException, InterruptedException {
-        return this.launcher.launch().pwd(this.pwd).envs(this.env).cmds(argumentList).stdout(out).quiet(quiet).join();
+        OutputStreamCollector outputCollector = new OutputStreamCollector(new PrintStream(out), charset);
+        return this.launcher.launch().pwd(this.pwd).envs(this.env).cmds(argumentList).stdout(outputCollector).quiet(quiet).join();
     }
 
     private ArgumentListBuilder getRunCommand(Path launchScriptPath, String taskName, String command) {

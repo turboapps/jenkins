@@ -5,6 +5,8 @@ import com.google.common.base.Strings;
 import org.jenkinsci.plugins.spoontrigger.utils.Patterns;
 
 import java.text.SimpleDateFormat;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class StringValidators {
 
@@ -24,6 +26,14 @@ public final class StringValidators {
         return new PredicateValidator<String>(Predicates.IS_DATE_FORMAT, failureMsg, Level.ERROR);
     }
 
+    public static Validator<String> isTimeSpanFormat(String failureMsg) {
+        return new PredicateValidator<String>(Predicates.IS_TIME_SPAN_FORMAT, failureMsg, Level.ERROR);
+    }
+
+    public static Validator<String> isInteger(String failureMsg) {
+        return new PredicateValidator<String>(Predicates.IS_INTEGER, failureMsg, Level.ERROR);
+    }
+
     public enum Predicates implements Predicate<String> {
         IS_NULL {
             @Override
@@ -40,7 +50,7 @@ public final class StringValidators {
         IS_DATE_FORMAT {
             @Override
             public boolean apply(String value) {
-                if(Strings.isNullOrEmpty(value)) {
+                if (Strings.isNullOrEmpty(value)) {
                     return false;
                 }
 
@@ -52,7 +62,35 @@ public final class StringValidators {
                     return false;
                 }
             }
+        },
+        IS_TIME_SPAN_FORMAT {
+            @Override
+            public boolean apply(String value) {
+                if (Strings.isNullOrEmpty(value)) {
+                    return false;
+                }
+
+                final Matcher matcher = TIME_SPAN_REGEX.matcher(value);
+                return matcher.matches();
+            }
+        },
+        IS_INTEGER {
+            @Override
+            public boolean apply(String value) {
+                if(Strings.isNullOrEmpty(value)) {
+                    return false;
+                }
+
+                try {
+                    Integer.valueOf(value);
+                    return true;
+                } catch (NumberFormatException ex) {
+                    return false;
+                }
+            }
         };
+
+        private static final Pattern TIME_SPAN_REGEX = Pattern.compile("\\d{2}(?::\\d{2}){0,2}");
 
         @Override
         public abstract boolean apply(String s);

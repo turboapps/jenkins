@@ -12,6 +12,7 @@ public final class Messages {
     public static final String REQUIRE_PRESENT_S = "%s must be present";
     public static final String REQUIRE_NON_EMPTY_STRING_S = "%s must be a non empty string";
     public static final String REQUIRE_VALID_FORMAT_SP = "%s (%s) does not have a valid format";
+    public static final String REQUIRE_VALID_FORMAT_S = "%s does not have a valid format";
 
     public static final String REQUIRE_SCREENSHOT_DIR = "Screenshot dir is not configured. Check Turbo panel in Jenkins global configuration.";
     public static final String REQUIRE_OUTPUT_IMAGE = "Output image name is not available in build information";
