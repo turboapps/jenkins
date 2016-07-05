@@ -11,18 +11,18 @@ import jenkins.model.Jenkins;
 import lombok.Getter;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.spoontrigger.utils.JsonOption;
-import org.jenkinsci.plugins.spoontrigger.validation.Level;
-import org.jenkinsci.plugins.spoontrigger.validation.StringValidators;
-import org.jenkinsci.plugins.spoontrigger.validation.Validator;
-import org.jenkinsci.plugins.spoontrigger.validation.Validators;
+import org.jenkinsci.plugins.spoontrigger.validation.*;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
+import java.io.File;
 import java.util.Collections;
 
 import static hudson.init.InitMilestone.EXTENSIONS_AUGMENTED;
-import static org.jenkinsci.plugins.spoontrigger.Messages.IGNORE_PARAMETER;
+import static org.jenkinsci.plugins.spoontrigger.Messages.*;
+import static org.jenkinsci.plugins.spoontrigger.Messages.PATH_NOT_POINT_TO_ITEM_S;
+import static org.jenkinsci.plugins.spoontrigger.Messages.PATH_SHOULD_BE_ABSOLUTE;
 
 public class TurboTool extends ToolInstallation {
 
@@ -31,11 +31,15 @@ public class TurboTool extends ToolInstallation {
     @Getter
     private final String hubApiKey;
 
+    @Getter
+    private final String screenshotDir;
+
     @DataBoundConstructor
-    public TurboTool(String name, String hubApiKey) {
+    public TurboTool(String name, String hubApiKey, String screenshotDir) {
         super(name, null, Collections.<ToolProperty<?>>emptyList());
 
         this.hubApiKey = Util.fixEmptyAndTrim(hubApiKey);
+        this.screenshotDir = Util.fixEmptyAndTrim(screenshotDir);
     }
 
     @Override
@@ -70,11 +74,19 @@ public class TurboTool extends ToolInstallation {
     @Extension
     public static class DescriptorImpl extends ToolDescriptor<TurboTool> {
 
-        private static final Validator<String> HUB_API_KEY =
-                StringValidators.isNotNull(IGNORE_PARAMETER, Level.OK);
+        private static final Validator<String> IGNORE_NULL_VALIDATOR = StringValidators.isNotNull(IGNORE_PARAMETER, Level.OK);
+        private static final Validator<String> PATH_STRING_VALIDATOR = StringValidators.isNotNull(REQUIRED_PARAMETER, Level.ERROR);
+        private static final Validator<java.io.File> DIR_PATH_VALIDATOR = Validators.chain(
+                FileValidators.exists(String.format(DOES_NOT_EXIST_S, "Directory")),
+                FileValidators.isDirectory(String.format(PATH_NOT_POINT_TO_ITEM_S, "a directory")),
+                FileValidators.isPathAbsolute(PATH_SHOULD_BE_ABSOLUTE, Level.WARNING)
+        );
 
         @Getter
         private String hubApiKey;
+
+        @Getter
+        private String screenshotDir;
 
         public DescriptorImpl() {
             super();
@@ -109,14 +121,26 @@ public class TurboTool extends ToolInstallation {
                 return;
             }
 
-            TurboTool tool = new TurboTool(DEFAULT, null);
+            TurboTool tool = new TurboTool(DEFAULT, null, null);
             descriptor.setInstallations(tool);
             descriptor.save();
         }
 
         public FormValidation doCheckHubApiKey(@QueryParameter String value) {
             String hubApiKey = Util.fixEmptyAndTrim(value);
-            return Validators.validate(HUB_API_KEY, hubApiKey);
+            return Validators.validate(IGNORE_NULL_VALIDATOR, hubApiKey);
+        }
+
+        public FormValidation doCheckScreenshotDir(@QueryParameter String value) {
+            String filePath = Util.fixEmptyAndTrim(value);
+            try {
+                PATH_STRING_VALIDATOR.validate(filePath);
+                File outputFile = new File(filePath);
+                DIR_PATH_VALIDATOR.validate(outputFile);
+                return FormValidation.ok();
+            } catch (ValidationException ex) {
+                return ex.getFailureMessage();
+            }
         }
 
         @Override
@@ -124,8 +148,9 @@ public class TurboTool extends ToolInstallation {
             JsonOption.ObjectWrapper jsonWrapper = JsonOption.wrap(json);
 
             hubApiKey = jsonWrapper.getString("hubApiKey").orNull();
+            screenshotDir = jsonWrapper.getString("screenshotDir").orNull();
 
-            setInstallations(new TurboTool(DEFAULT, hubApiKey));
+            setInstallations(new TurboTool(DEFAULT, hubApiKey, screenshotDir));
             save();
 
             return true;
