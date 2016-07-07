@@ -53,11 +53,11 @@ Try
 
     try
     {
-        $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes("$Command >> $logFilePath 2>&1"))
-        $taskAction = New-ScheduledTaskAction -Execute PowerShell.exe -Argument "-WindowStyle Hidden -EncodedCommand $encodedCommand" -WorkingDirectory $workingDirectoryToUse
+        $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes("$Command >> ""$logFilePath"" 2>&1"))
+        $taskAction = New-ScheduledTaskAction -Execute PowerShell.exe -Argument "-EncodedCommand $encodedCommand" -WorkingDirectory "$workingDirectoryToUse"
         Log-Status "Registering scheduled task '$TaskName'"
         Register-ScheduledTask -Action $taskAction -TaskName $TaskName | Out-Null
-        
+
         Log-Status "Starting scheduled task '$TaskName'"
         Start-ScheduledTask $TaskName
 
@@ -79,7 +79,6 @@ Try
     }
 
     Log-Status "Scheduled task '$TaskName' finished"
-
 
     Remove-Item $logFilePath
 }

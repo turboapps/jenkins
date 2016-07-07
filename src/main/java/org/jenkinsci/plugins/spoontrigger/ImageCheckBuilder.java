@@ -2,6 +2,7 @@ package org.jenkinsci.plugins.spoontrigger;
 
 import com.google.common.reflect.TypeToken;
 import hudson.Extension;
+import hudson.FilePath;
 import hudson.Launcher;
 import hudson.Util;
 import hudson.model.AbstractProject;
@@ -19,12 +20,15 @@ import org.jenkinsci.plugins.spoontrigger.validation.Validators;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
+import java.io.File;
 import java.io.IOException;
 
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
 
 public class ImageCheckBuilder extends BaseBuilder {
+
+    private static final FilePath TempDir = getTempDir();
 
     private String exitCode;
     private String bootstrapTime;
@@ -43,7 +47,7 @@ public class ImageCheckBuilder extends BaseBuilder {
 
     @Override
     protected boolean perform(SpoonBuild build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
-        ScheduledTasksApi scheduledTasksApi = new ScheduledTasksApi(build.getEnv().get(), build.getWorkspace(), build.getCharset(), launcher, listener, false);
+        ScheduledTasksApi scheduledTasksApi = new ScheduledTasksApi(build.getEnv().get(), TempDir, build.getCharset(), launcher, listener, false);
 
         Image outputImage = build.getOutputImage().orNull();
         checkState(outputImage != null, REQUIRE_OUTPUT_IMAGE);
@@ -68,6 +72,11 @@ public class ImageCheckBuilder extends BaseBuilder {
                 .hasChildProcess(hasChildProcesses);
 
         return cmdBuilder.build();
+    }
+
+    private static FilePath getTempDir() {
+        File localFile = new File(System.getProperty("java.io.tmpdir"));
+        return new FilePath(localFile);
     }
 
     @Extension

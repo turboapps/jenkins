@@ -166,7 +166,7 @@ public class ScheduledTasksApi {
     }
 
     private ArgumentListBuilder getRunCommand(Path launchScriptPath, String taskName, String command) {
-        return new ArgumentListBuilder("powershell")
+        return new ArgumentListBuilder("powershell.exe")
                 .add("-WindowStyle")
                 .add("Hidden")
                 .add("-File")
