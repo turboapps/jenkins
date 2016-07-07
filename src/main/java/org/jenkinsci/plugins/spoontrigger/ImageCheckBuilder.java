@@ -23,6 +23,8 @@ import org.kohsuke.stapler.QueryParameter;
 import java.io.File;
 import java.io.IOException;
 
+import lombok.Getter;
+
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
 
@@ -30,18 +32,27 @@ public class ImageCheckBuilder extends BaseBuilder {
 
     private static final FilePath TempDir = getTempDir();
 
+    @Getter
     private String exitCode;
+
+    @Getter
     private String bootstrapTime;
+
+    @Getter
     private String launchTime;
-    private boolean isConsoleApp;
+
+    @Getter
+    private boolean consoleApp;
+
+    @Getter
     private boolean hasChildProcesses;
 
     @DataBoundConstructor
-    public ImageCheckBuilder(String exitCode, String bootstrapTime, String launchTime, boolean isConsoleApp, boolean hasChildProcesses) {
+    public ImageCheckBuilder(String exitCode, String bootstrapTime, String launchTime, boolean consoleApp, boolean hasChildProcesses) {
         this.exitCode = Util.fixEmptyAndTrim(exitCode);
         this.bootstrapTime = Util.fixEmptyAndTrim(bootstrapTime);
         this.launchTime = Util.fixEmptyAndTrim(launchTime);
-        this.isConsoleApp = isConsoleApp;
+        this.consoleApp = consoleApp;
         this.hasChildProcesses = hasChildProcesses;
     }
 
@@ -66,7 +77,7 @@ public class ImageCheckBuilder extends BaseBuilder {
                 .screenshotPath(screenshotDir)
                 .image(image)
                 .exitCode(exitCode)
-                .consoleApp(isConsoleApp)
+                .consoleApp(consoleApp)
                 .launchDuration(launchTime)
                 .bootstrapDuration(bootstrapTime)
                 .hasChildProcess(hasChildProcesses);

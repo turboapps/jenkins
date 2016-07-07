@@ -13,7 +13,7 @@
         <f:entry title="Exit code" field="exitCode">
             <f:textbox checkUrl="'descriptorByName/ImageCheckBuilder/checkExitCode?value='+escape(this.value)"/>
         </f:entry>
-        <f:entry title="Console application" field="isConsoleApp">
+        <f:entry title="Console application" field="consoleApp">
             <f:checkbox/>
         </f:entry>
         <f:entry title="Has child processes" field="hasChildProcesses">
