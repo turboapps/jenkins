@@ -10,6 +10,8 @@ public class JsonOption {
         Optional<ObjectWrapper> getObject(String key);
 
         Optional<Boolean> getBoolean(String key);
+
+        Optional<Integer> getInteger(String id);
     }
 
     private enum NullJsonObjectOption implements ObjectWrapper {
@@ -28,6 +30,11 @@ public class JsonOption {
         @Override
         public Optional<ObjectWrapper> getObject(String key) {
             return Optional.of((ObjectWrapper) Instance);
+        }
+
+        @Override
+        public Optional<Integer> getInteger(String id) {
+            return Optional.absent();
         }
     }
 
@@ -51,6 +58,14 @@ public class JsonOption {
         public Optional<Boolean> getBoolean(String key) {
             if (delegate.containsKey(key)) {
                 return Optional.fromNullable(delegate.getBoolean(key));
+            }
+            return Optional.absent();
+        }
+
+        @Override
+        public Optional<Integer> getInteger(String key) {
+            if (delegate.containsKey(key)) {
+                return Optional.fromNullable(delegate.getInt(key));
             }
             return Optional.absent();
         }

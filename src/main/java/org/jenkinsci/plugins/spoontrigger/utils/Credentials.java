@@ -52,14 +52,9 @@ public final class Credentials {
         return new StandardListBoxModel().withEmptySelection().withAll(projectCredentials);
     }
 
-    public static FormValidation checkCredetntials(@AncestorInPath Item project, @QueryParameter String value) {
-        if (doNotHasPermissions(project)) {
-            return FormValidation.ok();
-        }
-
-        String credentialsId = Util.fixEmptyAndTrim(value);
-        Validator<String> validator = Validators.chain(CREDENTIALS_ID_VALIDATOR, new CredentialValidator(project));
-        return Validators.validate(validator, credentialsId);
+    public static ListBoxModel fillCredentialsIdItems() {
+        List<StandardUsernamePasswordCredentials> projectCredentials = Credentials.lookupByItem(StandardUsernamePasswordCredentials.class, null);
+        return new StandardListBoxModel().withEmptySelection().withAll(projectCredentials);
     }
 
     private static boolean doNotHasPermissions(Item project) {
