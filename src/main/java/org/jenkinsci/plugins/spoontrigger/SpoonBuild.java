@@ -2,15 +2,19 @@ package org.jenkinsci.plugins.spoontrigger;
 
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import com.google.common.base.Optional;
+import com.google.common.io.Closeables;
 import hudson.EnvVars;
 import hudson.FilePath;
 import hudson.Launcher;
+import hudson.model.AbstractBuild;
 import hudson.model.Build;
 import hudson.model.BuildListener;
+import hudson.model.Result;
 import lombok.Getter;
 import lombok.Setter;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.ConfigCommand;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
+import org.jenkinsci.plugins.spoontrigger.jira.JiraApi;
 import org.jenkinsci.plugins.spoontrigger.utils.LogUtils;
 
 import java.io.File;
@@ -53,6 +57,35 @@ public class SpoonBuild extends Build<SpoonProject, SpoonBuild> {
     }
 
     protected class SpoonBuildExecution extends BuildExecution {
+        @Override
+        protected Result doRun(BuildListener listener) throws Exception {
+            Result buildResult = super.doRun(listener);
+
+            try {
+                if (buildResult != null && buildResult.isWorseOrEqualTo(Result.FAILURE)) {
+                    TurboTool turboTool = TurboTool.getDefaultInstallation();
+                    TurboTool.BugTrackerSettings bugTrackerSettings = turboTool.getBugTrackerSettings();
+                    AbstractBuild<?, ?> rootBuild = getRootBuild();
+                    if (bugTrackerSettings != null && rootBuild instanceof SpoonBuild) {
+                        SpoonBuild build = (SpoonBuild) rootBuild;
+                        SpoonProject project = build.getProject();
+                        String projectName = project.getName();
+                        JiraApi jiraApi = new JiraApi(bugTrackerSettings);
+                        try {
+                            jiraApi.createOrReopenIssue(projectName);
+                        } finally {
+                            final boolean swallowException = true;
+                            Closeables.close(jiraApi, swallowException);
+                        }
+                    }
+                }
+            } catch (Throwable th) {
+                LogUtils.log(listener, "Failed to report the build failure in JIRA", th);
+            }
+
+            return buildResult;
+        }
+
         @Override
         public void cleanUp(BuildListener listener) throws Exception {
             try {

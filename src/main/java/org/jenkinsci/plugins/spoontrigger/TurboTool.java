@@ -23,8 +23,11 @@ import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
 import java.io.File;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Collections;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static hudson.init.InitMilestone.EXTENSIONS_AUGMENTED;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
 import static org.jenkinsci.plugins.spoontrigger.Messages.PATH_NOT_POINT_TO_ITEM_S;
@@ -84,39 +87,62 @@ public class TurboTool extends ToolInstallation {
     @Data
     public static final class BugTrackerSettings {
 
-        public static final int DEFAULT_PORT = 443;
-
+        private final URL endpoint;
         private final String host;
+        private final String firstSegment;
         private final int port;
-        private final String label;
-        private final String issueType;
         private final String projectKey;
         private final String credentialsId;
+        private final String issueType;
+        private final String issueLabel;
+        private final String transitionName;
+        private final String issueTitleFormat;
 
         @DataBoundConstructor
-        public BugTrackerSettings(String host, int port, String projectKey, String label, String issueType, String credentialsId) {
-            this.host = Util.fixEmptyAndTrim(host);
-            this.port = port;
-            this.label = Util.fixEmptyAndTrim(label);
-            this.issueType = Util.fixEmptyAndTrim(issueType);
+        public BugTrackerSettings(URL endpoint, String projectKey, String issueTitleFormat, String transitionName, String issueLabel, String issueType, String credentialsId) {
+            this.endpoint = endpoint;
+            this.host = endpoint.getHost();
+            int portToUse = endpoint.getPort();
+            if (portToUse == -1) {
+                portToUse = endpoint.getDefaultPort();
+            }
+            this.port = portToUse;
+            this.firstSegment = endpoint.getPath();
+
             this.projectKey = Util.fixEmptyAndTrim(projectKey);
+            this.issueType = Util.fixEmptyAndTrim(issueType);
+            this.issueLabel = Util.fixEmptyAndTrim(issueLabel);
+            this.issueTitleFormat = Util.fixEmptyAndTrim(issueTitleFormat);
+            this.transitionName = Util.fixEmptyAndTrim(transitionName);
             this.credentialsId = Util.fixEmptyAndTrim(credentialsId);
         }
 
-        public static BugTrackerSettings parse(JsonOption.ObjectWrapper json) {
-            String host = json.getString("host").orNull();
-            Integer port = json.getInteger("port").or(DEFAULT_PORT);
+        public static BugTrackerSettings parse(JsonOption.ObjectWrapper json) throws MalformedURLException {
+            String endpoint = json.getString("endpoint").orNull();
             String projectKey = json.getString("projectKey").orNull();
-            String label = json.getString("label").orNull();
+            String issueTitleFormat = json.getString("issueTitleFormat").orNull();
+            String issueLabel = json.getString("issueLabel").orNull();
             String issueType = json.getString("issueType").orNull();
+            String transitionName = json.getString("transitionName").orNull();
             String credentialsId = json.getString("credentialsId").orNull();
 
-            return new BugTrackerSettings(host, port, projectKey, label, issueType, credentialsId);
+            checkArgument(endpoint != null, REQUIRE_NON_EMPTY_STRING_S, "endpoint");
+
+            return new BugTrackerSettings(new URL(endpoint), projectKey, issueTitleFormat, transitionName, issueLabel, issueType, credentialsId);
+        }
+
+        public String getIssueTitle(String projectName) {
+            return String.format(issueTitleFormat, projectName);
         }
     }
 
     @Extension
     public static class DescriptorImpl extends ToolDescriptor<TurboTool> {
+
+        private static final String DEFAULT_ISSUE_LABEL = "JenkinsBuildFailure";
+        private static final String DEFAULT_TRANSITION_NAME = "Reopen";
+        private static final String DEFAULT_TITLE_FORMAT = "%s build is faling";
+        private static final String DEFAULT_ISSUE_TYPE = "Bug";
 
         private static final Validator<String> IGNORE_NULL_VALIDATOR = StringValidators.isNotNull(IGNORE_PARAMETER, Level.OK);
         private static final Validator<String> REQUIRED_STRING_VALIDATOR = StringValidators.isNotNull(REQUIRED_PARAMETER, Level.ERROR);
@@ -125,7 +151,6 @@ public class TurboTool extends ToolInstallation {
                 FileValidators.isDirectory(String.format(PATH_NOT_POINT_TO_ITEM_S, "a directory")),
                 FileValidators.isPathAbsolute(PATH_SHOULD_BE_ABSOLUTE, Level.WARNING)
         );
-        private static final Validator<String> PORT_NUMBER_VALIDATOR = new PortNumberValidator();
 
         @Getter
         private String hubApiKey;
@@ -136,23 +161,9 @@ public class TurboTool extends ToolInstallation {
         @Getter
         private BugTrackerSettings bugTrackerSettings;
 
-        public String getHost() {
-            if (bugTrackerSettings != null) {
-                return bugTrackerSettings.host;
-            }
-            return null;
-        }
-
-        public int getPort() {
-            if (bugTrackerSettings != null) {
-                return bugTrackerSettings.port;
-            }
-            return 443;
-        }
-
-        public String getLabel() {
-            if (bugTrackerSettings != null) {
-                return bugTrackerSettings.label;
+        public String getEndpoint() {
+            if (bugTrackerSettings != null && bugTrackerSettings.endpoint != null) {
+                return bugTrackerSettings.endpoint.toString();
             }
             return null;
         }
@@ -164,9 +175,37 @@ public class TurboTool extends ToolInstallation {
             return null;
         }
 
+        public String getIssueLabel() {
+            if (bugTrackerSettings != null) {
+                return bugTrackerSettings.issueLabel;
+            }
+            return DEFAULT_ISSUE_LABEL;
+        }
+
         public String getIssueType() {
             if (bugTrackerSettings != null) {
                 return bugTrackerSettings.issueType;
+            }
+            return DEFAULT_ISSUE_TYPE;
+        }
+
+        public String getTransitionName() {
+            if (bugTrackerSettings != null) {
+                return bugTrackerSettings.transitionName;
+            }
+            return DEFAULT_TRANSITION_NAME;
+        }
+
+        public String getIssueTitleFormat() {
+            if (bugTrackerSettings != null) {
+                return bugTrackerSettings.issueTitleFormat;
+            }
+            return DEFAULT_TITLE_FORMAT;
+        }
+
+        public String getCredentialsId() {
+            if (bugTrackerSettings != null) {
+                return bugTrackerSettings.credentialsId;
             }
             return null;
         }
@@ -233,15 +272,6 @@ public class TurboTool extends ToolInstallation {
             }
         }
 
-        public FormValidation doCheckPort(@QueryParameter String value) {
-            try {
-                PORT_NUMBER_VALIDATOR.validate(value);
-                return FormValidation.ok();
-            } catch (ValidationException ex) {
-                return ex.getFailureMessage();
-            }
-        }
-
         public FormValidation doCheckRequiredParameter(@QueryParameter String value) {
             String valueToUse = Util.fixEmptyAndTrim(value);
             return Validators.validate(REQUIRED_STRING_VALIDATOR, valueToUse);
@@ -257,7 +287,11 @@ public class TurboTool extends ToolInstallation {
             bugTrackerSettings = null;
             Optional<JsonOption.ObjectWrapper> bugTrackerSettingsOpt = jsonWrapper.getObject("bugTrackerSettings");
             if (bugTrackerSettingsOpt.isPresent()) {
-                bugTrackerSettings = BugTrackerSettings.parse(bugTrackerSettingsOpt.get());
+                try {
+                    bugTrackerSettings = BugTrackerSettings.parse(bugTrackerSettingsOpt.get());
+                } catch (MalformedURLException ex) {
+                    throw new FormException(ex, "endpoint");
+                }
             }
 
             setInstallations(new TurboTool(DEFAULT, hubApiKey, screenshotDir, bugTrackerSettings));
@@ -271,21 +305,6 @@ public class TurboTool extends ToolInstallation {
                 return descriptor.getInstallations();
             } catch (NullPointerException e) {
                 return new TurboTool[0];
-            }
-        }
-
-        private static class PortNumberValidator implements Validator<String> {
-
-            @Override
-            public void validate(String value) throws ValidationException {
-                try {
-                    int portNumber = Integer.parseInt(value);
-                    if (portNumber <= 0) {
-                        throw new ValidationException(FormValidation.error("Port number must be positive"));
-                    }
-                } catch (NumberFormatException ex) {
-                    throw new ValidationException(FormValidation.error("Port must be a positive number"));
-                }
             }
         }
     }

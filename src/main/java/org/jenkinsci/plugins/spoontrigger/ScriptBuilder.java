@@ -340,7 +340,7 @@ public class ScriptBuilder extends LoginBuilder {
         }
 
         public FormValidation doCheckCredentialsId(@AncestorInPath Item project, @QueryParameter String value) {
-            return Credentials.checkCredetntials(project, value);
+            return Credentials.checkCredentials(project, value);
         }
 
         public ListBoxModel doFillCredentialsIdItems(@AncestorInPath Item project) {

@@ -8,22 +8,25 @@
         <f:textbox name="screenshotDir"/>
     </f:entry>
     <f:optionalBlock title="Enable JIRA integration" name="bugTrackerSettings" checked="${instance.bugTrackerSettings ne null}">
-        <f:entry title="Host" field="host">
+        <f:entry title="Endpoint" field="endpoint">
             <f:textbox checkUrl="'descriptorByName/TurboTool/checkRequiredParameter?value='+escape(this.value)"/>
-        </f:entry>
-        <f:entry title="Port" field="port">
-            <f:textbox checkUrl="'descriptorByName/TurboTool/checkPort?value='+escape(this.value)"/>
         </f:entry>
         <f:entry title="Credentials" field="credentialsId">
             <c:select />
-        </f:entry>
-        <f:entry title="Issue label" field="issueLabel">
-            <f:textbox checkUrl="'descriptorByName/TurboTool/checkRequiredParameter?value='+escape(this.value)"/>
         </f:entry>
         <f:entry title="Project key" field="projectKey">
             <f:textbox checkUrl="'descriptorByName/TurboTool/checkRequiredParameter?value='+escape(this.value)"/>
         </f:entry>
         <f:entry title="Issue type" field="issueType">
+            <f:textbox checkUrl="'descriptorByName/TurboTool/checkRequiredParameter?value='+escape(this.value)"/>
+        </f:entry>
+        <f:entry title="Issue label" field="issueLabel">
+            <f:textbox checkUrl="'descriptorByName/TurboTool/checkRequiredParameter?value='+escape(this.value)"/>
+        </f:entry>
+        <f:entry title="Transition name" field="transitionName">
+            <f:textbox checkUrl="'descriptorByName/TurboTool/checkRequiredParameter?value='+escape(this.value)"/>
+        </f:entry>
+        <f:entry title="Issue title format" field="issueTitleFormat">
             <f:textbox checkUrl="'descriptorByName/TurboTool/checkRequiredParameter?value='+escape(this.value)"/>
         </f:entry>
     </f:optionalBlock>

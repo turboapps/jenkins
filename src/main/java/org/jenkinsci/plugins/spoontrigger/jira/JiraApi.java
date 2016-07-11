@@ -13,7 +13,6 @@ import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.AuthCache;
 import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -53,13 +52,36 @@ public class JiraApi implements Closeable {
         this.httpClient = HttpClients.custom().setSSLSocketFactory(SSLConnectionSocketFactory.getSystemSocketFactory()).build();
     }
 
-    private Optional<String> getIssueTransition(JSONObject issue, Pattern transitionPattern) throws URISyntaxException, KeyManagementException, NoSuchAlgorithmException, KeyStoreException, IOException {
-        JsonOption.ObjectWrapper wrappedIssue = JsonOption.wrap(issue);
-        String key = wrappedIssue.getString("key").orNull();
-        if (key == null) {
-            return Optional.absent();
-        }
+    public void createOrReopenIssue(String projectName) throws Exception {
+        String issueTitle = bugTrackerSettings.getIssueTitle(projectName);
+        Optional<String> issueKeyOpt = getIssueKey(Pattern.compile(projectName, Pattern.CASE_INSENSITIVE));
+        if (issueKeyOpt.isPresent()) {
+            String issueKey = issueKeyOpt.get();
+            Optional<String> transitionKeyOpt = getIssueTransition(issueKey, Pattern.compile(bugTrackerSettings.getTransitionName(), Pattern.CASE_INSENSITIVE));
+            if (!transitionKeyOpt.isPresent()) {
+                String errorMsg = String.format("\"%s\" transition not found. Ignore this error if the work item \"%s\" is already opened.", bugTrackerSettings.getTransitionName(), issueKey);
+                throw new Exception(errorMsg);
+            }
 
+            int statusCode = updateStatus(issueKey, transitionKeyOpt.get());
+            if (statusCode != HttpStatus.SC_NO_CONTENT) {
+                String errorMsg = String.format("Failed to create %s with \"%s\" title", bugTrackerSettings.getIssueType(), issueTitle);
+                throw new Exception(errorMsg);
+            }
+        } else {
+            int statusCode = createIssue(
+                    bugTrackerSettings.getProjectKey(),
+                    bugTrackerSettings.getIssueTitle(projectName),
+                    bugTrackerSettings.getIssueType(),
+                    bugTrackerSettings.getIssueLabel());
+            if (statusCode != HttpStatus.SC_CREATED) {
+                String errorMsg = String.format("Failed to transition issue %s-\"%s\" to \"%s\" state", bugTrackerSettings.getProjectKey(), issueTitle, bugTrackerSettings.getTransitionName());
+                throw new Exception(errorMsg);
+            }
+        }
+    }
+
+    public Optional<String> getIssueTransition(String key, Pattern transitionPattern) throws URISyntaxException, KeyManagementException, NoSuchAlgorithmException, KeyStoreException, IOException {
         URI issueTransitionsUrl = getIssueTransitionsUrl(key);
         JSONObject issueTransitions = getJsonObject(issueTransitionsUrl).orNull();
         if (issueTransitions == null) {
@@ -94,7 +116,7 @@ public class JiraApi implements Closeable {
     }
 
     public Optional<String> getIssueKey(Pattern summaryPattern) throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException, IOException, URISyntaxException {
-        URI issuesUrl = getIssuesUrl("labels=" + this.bugTrackerSettings.getLabel());
+        URI issuesUrl = getIssuesUrl("labels=" + this.bugTrackerSettings.getIssueLabel());
         Optional<JSONObject> issuesBagOption = getJsonObject(issuesUrl);
 
         if (!issuesBagOption.isPresent()) {
@@ -110,13 +132,13 @@ public class JiraApi implements Closeable {
         for (int index = 0; index < issues.size(); ++index) {
             JSONObject rawIssue = issues.getJSONObject(index);
             JsonOption.ObjectWrapper issue = JsonOption.wrap(rawIssue);
-            JsonOption.ObjectWrapper fields = issue.getObject("fields").orNull();
-            if (fields == null) {
+            String key = issue.getString("key").orNull();
+            if (key == null) {
                 continue;
             }
 
-            String key = fields.getString("key").orNull();
-            if (key == null) {
+            JsonOption.ObjectWrapper fields = issue.getObject("fields").orNull();
+            if (fields == null) {
                 continue;
             }
 
@@ -133,7 +155,7 @@ public class JiraApi implements Closeable {
         return Optional.absent();
     }
 
-    public int createIssue(String projectKey, String summary, String issueType) throws IOException, URISyntaxException {
+    public int createIssue(String projectKey, String summary, String issueType, String labels) throws IOException, URISyntaxException {
         JSONObject projectJson = new JSONObject();
         projectJson.put("key", projectKey);
 
@@ -144,6 +166,7 @@ public class JiraApi implements Closeable {
         fieldsJson.put("summary", summary);
         fieldsJson.put("project", projectJson);
         fieldsJson.put("issuetype", issueJson);
+        fieldsJson.put("labels", labels);
 
         JSONObject json = new JSONObject();
         json.put("fields", fieldsJson);
@@ -222,17 +245,17 @@ public class JiraApi implements Closeable {
 
     private URI getIssueTransitionsUrl(String key) throws URISyntaxException {
         URIBuilder builder = new URIBuilder()
-                .setPath("/bugs/rest/api/latest/issue/" + key + "/transitions");
+                .setPath(bugTrackerSettings.getFirstSegment() + "/rest/api/latest/issue/" + key + "/transitions");
         return builder.build();
     }
 
     private URI getIssueUrl() throws URISyntaxException {
-        return URI.create("/bugs/rest/api/2/issue/");
+        return URI.create(bugTrackerSettings.getFirstSegment() + "/rest/api/2/issue/");
     }
 
     private URI getIssuesUrl(String jql) throws URISyntaxException {
         URIBuilder builder = new URIBuilder()
-                .setPath("/bugs/rest/api/2/search")
+                .setPath(bugTrackerSettings.getFirstSegment() + "/rest/api/2/search")
                 .setCustomQuery("jql=" + jql);
         return builder.build();
     }

@@ -33,7 +33,7 @@ import java.io.IOException;
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.IGNORE_PARAMETER;
 import static org.jenkinsci.plugins.spoontrigger.Messages.REQUIRE_SINGLE_WORD_S;
-import static org.jenkinsci.plugins.spoontrigger.utils.Credentials.checkCredetntials;
+import static org.jenkinsci.plugins.spoontrigger.utils.Credentials.checkCredentials;
 import static org.jenkinsci.plugins.spoontrigger.utils.Credentials.fillCredentialsIdItems;
 
 public class LoginBuilder extends BaseBuilder {
@@ -139,7 +139,7 @@ public class LoginBuilder extends BaseBuilder {
         }
 
         public FormValidation doCheckCredentialsId(@AncestorInPath Item project, @QueryParameter String value) {
-            return checkCredetntials(project, value);
+            return checkCredentials(project, value);
         }
 
         public ListBoxModel doFillCredentialsIdItems(@AncestorInPath Item project) {
