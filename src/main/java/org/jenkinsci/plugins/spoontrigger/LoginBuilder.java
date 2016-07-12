@@ -40,7 +40,7 @@ public class LoginBuilder extends BaseBuilder {
 
     @Getter
     private final String credentialsId;
-    @Getter
+
     private final String hubUrl;
 
     private transient String hubUrlToUse;
@@ -85,7 +85,7 @@ public class LoginBuilder extends BaseBuilder {
         return HubApi.DEFAULT_HUB_URL;
     }
 
-    private void switchHub(CommandDriver client) {
+    private void switchHub(CommandDriver client) throws InterruptedException {
         ConfigCommand.CommandBuilder cmdBuilder = ConfigCommand.builder();
         if (Strings.isNullOrEmpty(this.hubUrl)) {
             cmdBuilder.reset(true);
@@ -99,7 +99,7 @@ public class LoginBuilder extends BaseBuilder {
         hubUrlToUse = configCommand.getHub().orNull();
     }
 
-    private void login(CommandDriver client, StandardUsernamePasswordCredentials credentials) {
+    private void login(CommandDriver client, StandardUsernamePasswordCredentials credentials) throws InterruptedException {
         LoginCommand loginCmd = LoginCommand.builder().login(credentials.getUsername()).password(credentials.getPassword()).build();
         loginCmd.run(client);
     }

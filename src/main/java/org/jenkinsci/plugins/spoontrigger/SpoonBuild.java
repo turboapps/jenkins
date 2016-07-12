@@ -59,14 +59,16 @@ public class SpoonBuild extends Build<SpoonProject, SpoonBuild> {
     protected class SpoonBuildExecution extends BuildExecution {
         @Override
         protected Result doRun(BuildListener listener) throws Exception {
-            Result buildResult = super.doRun(listener);
+            Result stepResult = super.doRun(listener);
 
             try {
-                if (buildResult != null && buildResult.isWorseOrEqualTo(Result.FAILURE) && buildResult.completeBuild) {
+                if (stepResult != null && stepResult.completeBuild && stepResult.isWorseOrEqualTo(Result.FAILURE)) {
                     TurboTool turboTool = TurboTool.getDefaultInstallation();
                     TurboTool.BugTrackerSettings bugTrackerSettings = turboTool.getBugTrackerSettings();
                     AbstractBuild<?, ?> rootBuild = getRootBuild();
-                    if (bugTrackerSettings != null && rootBuild instanceof SpoonBuild) {
+                    if (rootBuild instanceof SpoonBuild
+                            && bugTrackerSettings != null
+                            && Result.FAILURE == rootBuild.getResult()) {
                         SpoonBuild build = (SpoonBuild) rootBuild;
                         SpoonProject project = build.getProject();
                         String projectName = project.getName();
@@ -83,7 +85,7 @@ public class SpoonBuild extends Build<SpoonProject, SpoonBuild> {
                 LogUtils.log(listener, "Failed to report the build failure in JIRA", th);
             }
 
-            return buildResult;
+            return stepResult;
         }
 
         @Override

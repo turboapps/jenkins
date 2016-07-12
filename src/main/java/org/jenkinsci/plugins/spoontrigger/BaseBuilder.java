@@ -89,7 +89,7 @@ public abstract class BaseBuilder extends Builder {
         }
     }
 
-    public void switchHub(CommandDriver client, String hubUrl, SpoonBuild build) {
+    public void switchHub(CommandDriver client, String hubUrl, SpoonBuild build) throws InterruptedException {
         ConfigCommand.CommandBuilder cmdBuilder = ConfigCommand.builder();
         if (Strings.isNullOrEmpty(hubUrl)) {
             cmdBuilder.reset(true);

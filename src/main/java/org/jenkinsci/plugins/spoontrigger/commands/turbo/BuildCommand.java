@@ -35,7 +35,7 @@ public final class BuildCommand extends FilterOutputCommand {
     }
 
     @Override
-    public void run(CommandDriver client) throws IllegalStateException {
+    public void run(CommandDriver client) throws IllegalStateException, InterruptedException {
         super.run(client);
 
         Collection<String> patterns = findInOutput(OUTPUT_IMAGE_PATTERN);

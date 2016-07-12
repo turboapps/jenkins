@@ -70,7 +70,7 @@ public class PushPublisher extends SpoonBasePublisher {
     }
 
     @Override
-    public void publish(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) throws IllegalStateException {
+    public void publish(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) throws IllegalStateException, InterruptedException {
         SpoonBuild build = (SpoonBuild) abstractBuild;
         CommandDriver client = super.createClient(build, launcher, listener);
         PushCommand pushCmd = this.createPushCommand(build, listener);

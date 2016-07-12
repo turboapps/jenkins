@@ -25,7 +25,7 @@ public class ImportCommand extends FilterOutputCommand {
     }
 
     @Override
-    public void run(CommandDriver client) throws IllegalStateException {
+    public void run(CommandDriver client) throws IllegalStateException, InterruptedException {
         super.run(client);
 
         Collection<String> images = findInOutput(OUTPUT_IMAGE_PATTERN);

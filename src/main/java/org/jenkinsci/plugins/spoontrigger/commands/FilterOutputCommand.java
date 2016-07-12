@@ -19,7 +19,7 @@ public class FilterOutputCommand extends BaseCommand {
         super(argumentList);
     }
 
-    public void run(CommandDriver client) throws IllegalStateException {
+    public void run(CommandDriver client) throws IllegalStateException, InterruptedException {
         this.outputStream = new OutputStreamCollector(client.getLogger(), client.getCharset());
         try {
             errorCode = client.launch(this.getArgumentList(), this.outputStream);

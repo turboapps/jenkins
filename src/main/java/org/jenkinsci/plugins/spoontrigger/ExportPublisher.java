@@ -48,7 +48,7 @@ public class ExportPublisher extends SpoonBasePublisher {
     }
 
     @Override
-    public void publish(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) throws IllegalStateException {
+    public void publish(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) throws IllegalStateException, InterruptedException {
         CommandDriver client = super.createClient(abstractBuild, launcher, listener);
         ExportCommand exportCmd = this.createExportCommand();
         exportCmd.run(client);

@@ -307,12 +307,12 @@ public class SnapshotBuilder extends BaseBuilder {
             destroyVagrantVm(false);
         }
 
-        private void pull(Image image) {
+        private void pull(Image image) throws InterruptedException {
             PullCommand command = PullCommand.builder().image(image.printIdentifier()).build();
             command.run(commandDriver);
         }
 
-        private void executePostSnapshotScript() {
+        private void executePostSnapshotScript() throws InterruptedException {
             Path postSnapshotScriptPath = vagrantEnv.getPostSnapshotScriptPath();
             if (!postSnapshotScriptPath.toFile().exists()) {
                 return;
@@ -364,7 +364,7 @@ public class SnapshotBuilder extends BaseBuilder {
             }
         }
 
-        private void buildImage() {
+        private void buildImage() throws InterruptedException {
             BuildCommand.CommandBuilder commandBuilder = BuildCommand.builder(xStudioPath)
                     .xapplPath(vagrantEnv.getXapplPath().toString())
                     .imagePath(vagrantEnv.getImagePath().toString());
@@ -393,7 +393,7 @@ public class SnapshotBuilder extends BaseBuilder {
             command.run(commandDriver);
         }
 
-        private void importImage() {
+        private void importImage() throws InterruptedException {
             ImportCommand.CommandBuilder commandBuilder = ImportCommand.builder()
                     .type("svm")
                     .path(vagrantEnv.getImagePath().toString())

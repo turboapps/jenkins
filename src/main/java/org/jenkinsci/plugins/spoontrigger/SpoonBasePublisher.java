@@ -52,7 +52,7 @@ abstract class SpoonBasePublisher extends Publisher {
         this.image = builtImage;
     }
 
-    protected abstract void publish(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws IllegalStateException;
+    protected abstract void publish(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws IllegalStateException, InterruptedException;
 
     @Override
     public final boolean perform(AbstractBuild<?, ?> abstractBuild, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {

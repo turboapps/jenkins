@@ -138,7 +138,7 @@ public class ModelBuilder extends BaseBuilder {
             }
         }
 
-        private void push() {
+        private void push() throws InterruptedException {
             PushModelCommand.CommandBuilder builder = PushModelCommand.builder()
                     .localImage(image.printIdentifier())
                     .modelDirectory(modelDir.toString());
@@ -161,7 +161,7 @@ public class ModelBuilder extends BaseBuilder {
             }
         }
 
-        private void model() {
+        private void model() throws InterruptedException {
             ModelCommand modelCommand = ModelCommand.builder().image(image.printIdentifier())
                     .transcriptDirectory(transcriptDir.toString())
                     .modelDirectory(modelDir.toString())

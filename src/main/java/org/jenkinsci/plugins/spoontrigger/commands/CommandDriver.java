@@ -54,18 +54,17 @@ public final class CommandDriver {
                 .pwd(build.getScript().get().getParent());
     }
 
-    int launch(ArgumentListBuilder argumentList) throws IllegalStateException {
+    int launch(ArgumentListBuilder argumentList) throws IllegalStateException, InterruptedException {
         return this.launch(argumentList, this.getLogger());
     }
 
-    int launch(ArgumentListBuilder argumentList, OutputStream out) throws IllegalStateException {
+    int launch(ArgumentListBuilder argumentList, OutputStream out) throws IllegalStateException, InterruptedException {
         int errorCode;
         try {
             errorCode = this.createLauncher().cmds(argumentList).stdout(out).join();
         } catch (IOException ex) {
-            throw onLaunchFailure(argumentList, ex);
-        } catch (InterruptedException ex) {
-            throw onLaunchFailure(argumentList, ex);
+            String errMsg = String.format("Execution of command (%s) failed", argumentList);
+            throw new IllegalStateException(errMsg, ex);
         }
 
         if (!ignoreErrorCode && errorCode != NO_ERROR) {
@@ -78,11 +77,6 @@ public final class CommandDriver {
 
     PrintStream getLogger() {
         return this.listener.getLogger();
-    }
-
-    private IllegalStateException onLaunchFailure(ArgumentListBuilder args, Exception ex) {
-        String errMsg = String.format("Execution of command (%s) failed", args);
-        return new IllegalStateException(errMsg, ex);
     }
 
     private Launcher.ProcStarter createLauncher() {

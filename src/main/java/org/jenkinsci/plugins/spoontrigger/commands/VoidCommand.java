@@ -8,7 +8,7 @@ public abstract class VoidCommand extends BaseCommand {
         super(argumentList);
     }
 
-    public void run(CommandDriver client) throws IllegalStateException {
+    public void run(CommandDriver client) throws IllegalStateException, InterruptedException {
         client.launch(this.getArgumentList());
     }
 }

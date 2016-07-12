@@ -153,7 +153,7 @@ public class ScriptBuilder extends LoginBuilder {
         this.mountSettings.checkMissing();
     }
 
-    private void checkSpoonPluginIsRunning(CommandDriver client) {
+    private void checkSpoonPluginIsRunning(CommandDriver client) throws InterruptedException {
         VersionCommand versionCmd = VersionCommand.builder().build();
         versionCmd.run(client);
     }
