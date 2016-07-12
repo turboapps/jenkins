@@ -62,7 +62,7 @@ public class SpoonBuild extends Build<SpoonProject, SpoonBuild> {
             Result buildResult = super.doRun(listener);
 
             try {
-                if (buildResult != null && buildResult.isWorseOrEqualTo(Result.FAILURE)) {
+                if (buildResult != null && buildResult.isWorseOrEqualTo(Result.FAILURE) && buildResult.completeBuild) {
                     TurboTool turboTool = TurboTool.getDefaultInstallation();
                     TurboTool.BugTrackerSettings bugTrackerSettings = turboTool.getBugTrackerSettings();
                     AbstractBuild<?, ?> rootBuild = getRootBuild();
