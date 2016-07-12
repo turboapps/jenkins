@@ -141,8 +141,9 @@ public class TurboTool extends ToolInstallation {
 
         private static final String DEFAULT_ISSUE_LABEL = "JenkinsBuildFailure";
         private static final String DEFAULT_TRANSITION_NAME = "Reopen";
-        private static final String DEFAULT_TITLE_FORMAT = "%s build is faling";
+        private static final String DEFAULT_TITLE_FORMAT = "%s build is failing";
         private static final String DEFAULT_ISSUE_TYPE = "Bug";
+        private static final String DEFAULT_PROTOCOL = "https";
 
         private static final Validator<String> IGNORE_NULL_VALIDATOR = StringValidators.isNotNull(IGNORE_PARAMETER, Level.OK);
         private static final Validator<String> REQUIRED_STRING_VALIDATOR = StringValidators.isNotNull(REQUIRED_PARAMETER, Level.ERROR);
@@ -201,6 +202,13 @@ public class TurboTool extends ToolInstallation {
                 return bugTrackerSettings.issueTitleFormat;
             }
             return DEFAULT_TITLE_FORMAT;
+        }
+
+        public String getProtocol() {
+            if (bugTrackerSettings != null && bugTrackerSettings.endpoint != null) {
+                return bugTrackerSettings.endpoint.getProtocol();
+            }
+            return DEFAULT_PROTOCOL;
         }
 
         public String getCredentialsId() {

@@ -3,6 +3,7 @@ package org.jenkinsci.plugins.spoontrigger.jira;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
+import com.google.common.io.Closeables;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import org.apache.http.HttpEntity;
@@ -55,28 +56,34 @@ public class JiraApi implements Closeable {
     public void createOrReopenIssue(String projectName) throws Exception {
         String issueTitle = bugTrackerSettings.getIssueTitle(projectName);
         Optional<String> issueKeyOpt = getIssueKey(Pattern.compile(projectName, Pattern.CASE_INSENSITIVE));
-        if (issueKeyOpt.isPresent()) {
-            String issueKey = issueKeyOpt.get();
-            Optional<String> transitionKeyOpt = getIssueTransition(issueKey, Pattern.compile(bugTrackerSettings.getTransitionName(), Pattern.CASE_INSENSITIVE));
-            if (!transitionKeyOpt.isPresent()) {
-                String errorMsg = String.format("\"%s\" transition not found. Ignore this error if the work item \"%s\" is already opened.", bugTrackerSettings.getTransitionName(), issueKey);
-                throw new Exception(errorMsg);
-            }
+        CloseableHttpResponse httpResponse = null;
+        try {
+            if (issueKeyOpt.isPresent()) {
+                String issueKey = issueKeyOpt.get();
+                Optional<String> transitionKeyOpt = getIssueTransition(issueKey, Pattern.compile(bugTrackerSettings.getTransitionName(), Pattern.CASE_INSENSITIVE));
+                if (!transitionKeyOpt.isPresent()) {
+                    String errorMsg = String.format("\"%s\" transition not found. Ignore this error if the work item \"%s\" is already opened.", bugTrackerSettings.getTransitionName(), issueKey);
+                    throw new Exception(errorMsg);
+                }
 
-            int statusCode = updateStatus(issueKey, transitionKeyOpt.get());
-            if (statusCode != HttpStatus.SC_NO_CONTENT) {
-                String errorMsg = String.format("Failed to create %s with \"%s\" title", bugTrackerSettings.getIssueType(), issueTitle);
-                throw new Exception(errorMsg);
+                httpResponse = updateStatus(issueKey, transitionKeyOpt.get());
+
+                handleHttpResponse(httpResponse, HttpStatus.SC_NO_CONTENT, "Failed to transition issue %s-\"%s\" to \"%s\" state.", issueKey, issueTitle, bugTrackerSettings.getTransitionName());
+            } else {
+                httpResponse = createIssue(
+                        bugTrackerSettings.getProjectKey(),
+                        bugTrackerSettings.getIssueTitle(projectName),
+                        bugTrackerSettings.getIssueType(),
+                        bugTrackerSettings.getIssueLabel());
+
+                handleHttpResponse(httpResponse, HttpStatus.SC_CREATED, "Failed to create %s with \"%s\" title.", issueTitle);
             }
-        } else {
-            int statusCode = createIssue(
-                    bugTrackerSettings.getProjectKey(),
-                    bugTrackerSettings.getIssueTitle(projectName),
-                    bugTrackerSettings.getIssueType(),
-                    bugTrackerSettings.getIssueLabel());
-            if (statusCode != HttpStatus.SC_CREATED) {
-                String errorMsg = String.format("Failed to transition issue %s-\"%s\" to \"%s\" state", bugTrackerSettings.getProjectKey(), issueTitle, bugTrackerSettings.getTransitionName());
-                throw new Exception(errorMsg);
+        } finally {
+            if (httpResponse != null) {
+                EntityUtils.consume(httpResponse.getEntity());
+
+                final boolean swallowIoException = true;
+                Closeables.close(httpResponse, swallowIoException);
             }
         }
     }
@@ -155,18 +162,20 @@ public class JiraApi implements Closeable {
         return Optional.absent();
     }
 
-    public int createIssue(String projectKey, String summary, String issueType, String labels) throws IOException, URISyntaxException {
+    public CloseableHttpResponse createIssue(String projectKey, String summary, String issueType, String labels) throws IOException, URISyntaxException {
         JSONObject projectJson = new JSONObject();
         projectJson.put("key", projectKey);
 
         JSONObject issueJson = new JSONObject();
         issueJson.put("name", issueType);
 
+        JSONArray labelsJson = new JSONArray().element(labels);
+
         JSONObject fieldsJson = new JSONObject();
         fieldsJson.put("summary", summary);
         fieldsJson.put("project", projectJson);
         fieldsJson.put("issuetype", issueJson);
-        fieldsJson.put("labels", labels);
+        fieldsJson.put("labels", labelsJson);
 
         JSONObject json = new JSONObject();
         json.put("fields", fieldsJson);
@@ -175,7 +184,7 @@ public class JiraApi implements Closeable {
         return postJson(issuePostUrl, json);
     }
 
-    public int updateStatus(String issueKey, String transitionId) throws URISyntaxException, IOException, NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
+    public CloseableHttpResponse updateStatus(String issueKey, String transitionId) throws URISyntaxException, IOException, NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
         JSONObject transitionJson = new JSONObject();
         transitionJson.put("id", transitionId);
 
@@ -191,14 +200,24 @@ public class JiraApi implements Closeable {
         httpClient.close();
     }
 
-    private int postJson(URI url, JSONObject json) throws IOException {
+    private void handleHttpResponse(CloseableHttpResponse httpResponse, int expectedStatusCode, String errorMsgFormat, Object... params) throws Exception {
+        if (httpResponse.getStatusLine().getStatusCode() != expectedStatusCode) {
+            String errorMsg = String.format(errorMsgFormat, params);
+            StringBuilder msgBuilder = new StringBuilder(errorMsg)
+                    .append(System.lineSeparator())
+                    .append(httpResponse.getStatusLine())
+                    .append(EntityUtils.toString(httpResponse.getEntity()));
+            throw new Exception(msgBuilder.toString());
+        }
+    }
+
+    private CloseableHttpResponse postJson(URI url, JSONObject json) throws IOException {
         HttpPost httpPost = new HttpPost(url);
         httpPost.addHeader("Content-Type", "application/json");
         StringEntity input = new StringEntity(json.toString());
         httpPost.setEntity(input);
 
-        CloseableHttpResponse response = httpClient.execute(targetHost, httpPost, clientContext);
-        return response.getStatusLine().getStatusCode();
+        return httpClient.execute(targetHost, httpPost, clientContext);
     }
 
     private Optional<JSONObject> getJsonObject(URI url) throws IOException, KeyStoreException, NoSuchAlgorithmException, KeyManagementException {
