@@ -17,6 +17,7 @@ import lombok.Data;
 import lombok.Getter;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
+import org.jenkinsci.plugins.spoontrigger.commands.OutputStreamCollector;
 import org.jenkinsci.plugins.spoontrigger.commands.powershell.PowerShellCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.ImportCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.PullCommand;
@@ -428,12 +429,12 @@ public class SnapshotBuilder extends BaseBuilder {
         }
 
         private void provisionVagrantVm() throws IOException, InterruptedException {
-            scheduledTasksApi.run(build.getProject().getName() + " - vagrant up", "vagrant up");
+            scheduledTasksApi.run(build.getProject().getName() + " - vagrant up", "vagrant up", new OutputStreamCollector());
         }
 
         private void destroyVagrantVm(boolean swallowException) {
             try {
-                scheduledTasksApi.run(build.getProject().getName() + " - vagrant destroy", "vagrant destroy --force");
+                scheduledTasksApi.run(build.getProject().getName() + " - vagrant destroy", "vagrant destroy --force", new OutputStreamCollector());
             } catch (Throwable th) {
                 final String errorMsg = "`vagrant destroy` failed with exception. The virtual machine may have to be removed from VirtualBox manually.";
                 if (swallowException) {

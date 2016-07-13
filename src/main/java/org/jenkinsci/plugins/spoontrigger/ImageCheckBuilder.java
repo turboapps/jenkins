@@ -10,6 +10,7 @@ import hudson.model.BuildListener;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
+import org.jenkinsci.plugins.spoontrigger.commands.OutputStreamCollector;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.CheckCommand;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.scheduledtasks.ScheduledTasksApi;
@@ -22,6 +23,7 @@ import org.kohsuke.stapler.QueryParameter;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.regex.Pattern;
 
 import lombok.Getter;
 
@@ -29,6 +31,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
 
 public class ImageCheckBuilder extends BaseBuilder {
+
+    private static final Pattern ERROR_PATTERN = Pattern.compile("^Error:\\s*(.*?)$");
 
     private static final FilePath TempDir = getTempDir();
 
@@ -64,7 +68,12 @@ public class ImageCheckBuilder extends BaseBuilder {
         checkState(outputImage != null, REQUIRE_OUTPUT_IMAGE);
 
         CheckCommand command = createCheckCommand(outputImage);
-        scheduledTasksApi.run("test_" + outputImage.getNamespace() + "_" + outputImage.getRepo(), command.getArgumentList().toString());
+        OutputStreamCollector outputStreamCollector = new OutputStreamCollector();
+        scheduledTasksApi.run("test_" + outputImage.getNamespace() + "_" + outputImage.getRepo(), command.getArgumentList().toString(), outputStreamCollector);
+
+        if (!outputStreamCollector.findAll(ERROR_PATTERN).isEmpty()) {
+            throw new IllegalStateException("One or more validation tests failed");
+        }
 
         return true;
     }

@@ -27,16 +27,25 @@ public class OutputStreamCollector extends LineTransformationOutputStream {
     private String lastLine;
     private int totalBytes;
 
-    private final PrintStream out;
-    private final Charset charset;
+    private PrintStream out;
+    private Charset charset;
 
     public OutputStreamCollector(PrintStream out, Charset charset) {
+        this();
+
         this.out = out;
         this.charset = charset;
+    }
 
+    public OutputStreamCollector() {
         this.lines = new ArrayList<String>();
         this.lastLine = null;
         this.totalBytes = 0;
+    }
+
+    public void bind(PrintStream out, Charset charset) {
+        this.out = out;
+        this.charset = charset;
     }
 
     @Override

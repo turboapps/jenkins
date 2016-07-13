@@ -58,7 +58,7 @@ public class ScheduledTasksApi {
     /**
      * Executes PowerShellCommand command using a scheduled task. If a scheduled task with the specified name already exists it will be deleted.
      */
-    public void run(String taskName, String command) throws IOException, InterruptedException {
+    public void run(String taskName, String command, OutputStreamCollector outputStreamCollector) throws IOException, InterruptedException {
         Path tempDir = Files.createTempDirectory("scheduledtask-");
         try {
             Path launchScriptPath = Paths.get(tempDir.toString(), SCHEDULED_TASKS_RUN_RESOURCE_ID);
@@ -72,7 +72,8 @@ public class ScheduledTasksApi {
             }
 
             ArgumentListBuilder runCommand = getRunCommand(launchScriptPath, taskName, command);
-            executeCommandAssertExitCode(runCommand, listener.getLogger());
+            outputStreamCollector.bind(listener.getLogger(), this.charset);
+            executeCommandAssertExitCode(runCommand, outputStreamCollector);
         } finally {
             FileUtils.deleteDirectoryTree(tempDir);
         }
