@@ -76,7 +76,7 @@ public class JiraApi implements Closeable {
                         bugTrackerSettings.getIssueType(),
                         bugTrackerSettings.getIssueLabel());
 
-                handleHttpResponse(httpResponse, HttpStatus.SC_CREATED, "Failed to create %s with \"%s\" title.", issueTitle);
+                handleHttpResponse(httpResponse, HttpStatus.SC_CREATED, "Failed to create %s with \"%s\" title.", bugTrackerSettings.getIssueType(), issueTitle);
             }
         } finally {
             if (httpResponse != null) {
