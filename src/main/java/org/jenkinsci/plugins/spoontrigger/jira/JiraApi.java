@@ -41,15 +41,26 @@ import java.security.NoSuchAlgorithmException;
 import java.util.regex.Pattern;
 
 public class JiraApi implements Closeable {
-    private final HttpHost targetHost;
-    private final HttpClientContext clientContext;
-    private final TurboTool.BugTrackerSettings bugTrackerSettings;
-    private final CloseableHttpClient httpClient;
+    private HttpHost targetHost;
+    private HttpClientContext clientContext;
+    private TurboTool.BugTrackerSettings bugTrackerSettings;
+    private CloseableHttpClient httpClient;
 
     public JiraApi(TurboTool.BugTrackerSettings bugTrackerSettings) {
-        this.targetHost = new HttpHost(bugTrackerSettings.getHost(), bugTrackerSettings.getPort(), "https");
+        setUp(bugTrackerSettings);
+
         this.clientContext = createClientContext(this.targetHost, bugTrackerSettings.getCredentialsId());
+    }
+
+    public JiraApi(TurboTool.BugTrackerSettings bugTrackerSettings, String login, String password) {
+        setUp(bugTrackerSettings);
+
+        this.clientContext = createClientContext(this.targetHost, Optional.fromNullable(login), Optional.fromNullable(password));
+    }
+
+    private void setUp(TurboTool.BugTrackerSettings bugTrackerSettings) {
         this.bugTrackerSettings = bugTrackerSettings;
+        this.targetHost = new HttpHost(bugTrackerSettings.getHost(), bugTrackerSettings.getPort(), "https");
         this.httpClient = HttpClients.custom().setSSLSocketFactory(SSLConnectionSocketFactory.getSystemSocketFactory()).build();
     }
 
@@ -123,41 +134,49 @@ public class JiraApi implements Closeable {
     }
 
     public Optional<String> getIssueKey(Pattern summaryPattern) throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException, IOException, URISyntaxException {
-        URI issuesUrl = getIssuesUrl("labels=" + this.bugTrackerSettings.getIssueLabel());
-        Optional<JSONObject> issuesBagOption = getJsonObject(issuesUrl);
+        int totalIssues, currentIssue = 0;
 
-        if (!issuesBagOption.isPresent()) {
-            return Optional.absent();
-        }
-
-        JSONObject issuesBag = issuesBagOption.get();
-        if (!issuesBag.has("issues")) {
-            return Optional.absent();
-        }
-
-        JSONArray issues = issuesBag.getJSONArray("issues");
-        for (int index = 0; index < issues.size(); ++index) {
-            JSONObject rawIssue = issues.getJSONObject(index);
-            JsonOption.ObjectWrapper issue = JsonOption.wrap(rawIssue);
-            String key = issue.getString("key").orNull();
-            if (key == null) {
-                continue;
+        do {
+            URI issuesUrl = getIssuesUrl("labels=" + this.bugTrackerSettings.getIssueLabel(), currentIssue);
+            Optional<JSONObject> issuesBagOption = getJsonObject(issuesUrl);
+            if (!issuesBagOption.isPresent()) {
+                return Optional.absent();
             }
 
-            JsonOption.ObjectWrapper fields = issue.getObject("fields").orNull();
-            if (fields == null) {
-                continue;
+            JSONObject issuesBag = issuesBagOption.get();
+            if (!issuesBag.has("issues")) {
+                return Optional.absent();
             }
 
-            String summary = fields.getString("summary").orNull();
-            if (summary == null) {
-                continue;
+            if (!issuesBag.has("total")) {
+                return Optional.absent();
             }
+            totalIssues = issuesBag.getInt("total");
 
-            if (summaryPattern.matcher(summary).find()) {
-                return Optional.of(key);
+            JSONArray issues = issuesBag.getJSONArray("issues");
+            for (int index = 0; index < issues.size(); ++index, ++currentIssue) {
+                JSONObject rawIssue = issues.getJSONObject(index);
+                JsonOption.ObjectWrapper issue = JsonOption.wrap(rawIssue);
+                String key = issue.getString("key").orNull();
+                if (key == null) {
+                    continue;
+                }
+
+                JsonOption.ObjectWrapper fields = issue.getObject("fields").orNull();
+                if (fields == null) {
+                    continue;
+                }
+
+                String summary = fields.getString("summary").orNull();
+                if (summary == null) {
+                    continue;
+                }
+
+                if (summaryPattern.matcher(summary).find()) {
+                    return Optional.of(key);
+                }
             }
-        }
+        } while (currentIssue < totalIssues);
 
         return Optional.absent();
     }
@@ -240,23 +259,31 @@ public class JiraApi implements Closeable {
     }
 
     private static HttpClientContext createClientContext(HttpHost targetHost, String credentialsId) {
-        HttpClientContext context = HttpClientContext.create();
-
+        String username = null;
+        String password = null;
         if (!Strings.isNullOrEmpty(credentialsId)) {
             Optional<StandardUsernamePasswordCredentials> credentialsOtp = Credentials.lookupById(StandardUsernamePasswordCredentials.class, credentialsId);
             if (credentialsOtp.isPresent()) {
-                String userName = credentialsOtp.get().getUsername();
-                String password = credentialsOtp.get().getPassword().getPlainText();
-
-                CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-                credentialsProvider.setCredentials(new AuthScope(targetHost.getHostName(), AuthScope.ANY_PORT), new UsernamePasswordCredentials(userName, password));
-                AuthCache authCache = new BasicAuthCache();
-                AuthScheme basicAuth = new BasicScheme();
-                authCache.put(targetHost, basicAuth);
-
-                context.setCredentialsProvider(credentialsProvider);
-                context.setAuthCache(authCache);
+                username = credentialsOtp.get().getUsername();
+                password = credentialsOtp.get().getPassword().getPlainText();
             }
+        }
+
+        return createClientContext(targetHost, Optional.fromNullable(username), Optional.fromNullable(password));
+    }
+
+    private static HttpClientContext createClientContext(HttpHost targetHost, Optional<String> usernameOpt, Optional<String> passwordOpt) {
+        HttpClientContext context = HttpClientContext.create();
+
+        if (usernameOpt.isPresent() && passwordOpt.isPresent()) {
+            CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+            credentialsProvider.setCredentials(new AuthScope(targetHost.getHostName(), AuthScope.ANY_PORT), new UsernamePasswordCredentials(usernameOpt.get(), passwordOpt.get()));
+            AuthCache authCache = new BasicAuthCache();
+            AuthScheme basicAuth = new BasicScheme();
+            authCache.put(targetHost, basicAuth);
+
+            context.setCredentialsProvider(credentialsProvider);
+            context.setAuthCache(authCache);
         }
 
         return context;
@@ -272,10 +299,11 @@ public class JiraApi implements Closeable {
         return URI.create(bugTrackerSettings.getFirstSegment() + "/rest/api/2/issue/");
     }
 
-    private URI getIssuesUrl(String jql) throws URISyntaxException {
+    private URI getIssuesUrl(String jql, int startAt) throws URISyntaxException {
         URIBuilder builder = new URIBuilder()
                 .setPath(bugTrackerSettings.getFirstSegment() + "/rest/api/2/search")
-                .setCustomQuery("jql=" + jql);
+                .addParameter("jql", jql)
+                .addParameter("startAt", Integer.toString(startAt));
         return builder.build();
     }
 }
