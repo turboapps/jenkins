@@ -11,6 +11,13 @@ Turbo.net plugin supports following features:
 
 For more details see our plugin at [Jenkins Wiki](https://wiki.jenkins-ci.org/display/JENKINS/SpoonScript+Plugin).
 
+## Build
+1. Ensure you have JDK 8.0+ and Maven installed. 
+2. Ensure you have the jenkins repos added in your ~/.m2/settings.xml. As described here (https://wiki.jenkins-ci.org/display/JENKINS/Plugin+tutorial)
+3. After than `mvn build`
+4. To run the plugin locally, use `mvn hpi:run`
+
+
 ## License
 |                      |                                          |
 |:---------------------|:-----------------------------------------|
