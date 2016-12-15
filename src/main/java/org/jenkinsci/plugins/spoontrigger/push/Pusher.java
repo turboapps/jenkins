@@ -21,10 +21,10 @@ public class Pusher {
         this.client = client;
     }
 
-    public void push(SpoonBuild build) throws InterruptedException, IOException {
+    public void push(SpoonBuild build, boolean buildExe) throws InterruptedException, IOException {
         validate(build);
 
-        PushCommand pushCmd = createPushCommand(build);
+        PushCommand pushCmd = createPushCommand(build, buildExe);
         pushCmd.run(client);
     }
 
@@ -38,7 +38,7 @@ public class Pusher {
         checkState(builtImage.isPresent(), REQUIRE_PRESENT_S, "built image");
     }
 
-    private PushCommand createPushCommand(SpoonBuild build) {
+    private PushCommand createPushCommand(SpoonBuild build, boolean buildExe) {
         Optional<Image> builtImage = build.getOutputImage();
         PushCommand.CommandBuilder cmdBuilder = PushCommand.builder().image(builtImage.get().printIdentifier());
 
@@ -46,6 +46,7 @@ public class Pusher {
         if (remoteImage.isPresent()) {
             cmdBuilder.remoteImage(remoteImage.get().printIdentifier());
         }
+        cmdBuilder.buildExe(buildExe);
 
         return cmdBuilder.build();
     }

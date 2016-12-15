@@ -39,6 +39,9 @@ public class SpoonBuild extends Build<SpoonProject, SpoonBuild> {
     @Getter
     private Optional<String> hubUrl = Optional.absent();
 
+    @Getter
+    private boolean buildExe = false;
+
     public SpoonBuild(SpoonProject project) throws IOException {
         super(project);
     }

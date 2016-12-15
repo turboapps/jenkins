@@ -14,6 +14,7 @@ public class PushConfig {
     private String organization;
     private boolean overwriteOrganization;
     private String hubUrls;
+    private boolean buildExe;
 
     public Image getRemoteImage() {
         return Image.parse(remoteImageName);

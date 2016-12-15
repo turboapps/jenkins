@@ -92,6 +92,8 @@ public class PushPublisher extends SpoonBasePublisher {
 
     private PushConfig cratePushConfig(Image localImage) {
         final TagGenerationStrategy tagGenerationStrategy = appendDate ? TagGenerationStrategy.AppendDate : TagGenerationStrategy.Identity;
+
+        boolean notImplementedBuildTurboExe = false;
         return new PushConfig(
                 localImage,
                 remoteImageName,
@@ -99,7 +101,8 @@ public class PushPublisher extends SpoonBasePublisher {
                 tagGenerationStrategy,
                 organization,
                 overwriteOrganization,
-                NO_HUB_URLS_DEFINED);
+                NO_HUB_URLS_DEFINED,
+                notImplementedBuildTurboExe);
     }
 
     @Extension

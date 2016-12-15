@@ -26,13 +26,14 @@ public final class PushCommand extends FilterOutputCommand {
 
     public static final class CommandBuilder {
 
-        private Optional<String> imageName = Optional.absent();
+        private String imageName = null;
         private Optional<String> remoteImageName = Optional.absent();
+        private boolean buildExe = false;
 
         public CommandBuilder image(String image) {
             checkArgument(Patterns.isSingleWord(image), REQUIRE_SINGLE_WORD_SP, "image", image);
 
-            this.imageName = Optional.of(image.trim());
+            this.imageName = image.trim();
             return this;
         }
 
@@ -43,10 +44,19 @@ public final class PushCommand extends FilterOutputCommand {
             return this;
         }
 
-        public PushCommand build() {
-            checkState(this.imageName.isPresent(), REQUIRE_PRESENT_S, "image");
+        public void buildExe(boolean buildExe) {
+            this.buildExe = buildExe;
+        }
 
-            ArgumentListBuilder args = new ArgumentListBuilder(SPOON_CLIENT, "push", this.imageName.get());
+        public PushCommand build() {
+            checkState(imageName!=null, REQUIRE_PRESENT_S, "image");
+            ArgumentListBuilder args = new ArgumentListBuilder(SPOON_CLIENT, "push");
+
+            if(buildExe){
+                args.add("--include-exe");
+            }
+
+            args.add(this.imageName);
             if (this.remoteImageName.isPresent()) {
                 args.add(this.remoteImageName.get());
             }

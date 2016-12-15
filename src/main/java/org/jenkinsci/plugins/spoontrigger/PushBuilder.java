@@ -56,11 +56,19 @@ public class PushBuilder extends BaseBuilder {
     private final boolean overwriteOrganization;
     @Getter
     private final String hubUrls;
+    @Getter
+    private final boolean buildExe;
+
 
     @DataBoundConstructor
     public PushBuilder(@Nullable RemoteImageNameStrategy remoteImageStrategy, @Nullable String hubUrls,
-                       @Nullable String organization, boolean overwriteOrganization,
-                       @Nullable String remoteImageName, @Nullable String dateFormat, boolean appendDate, boolean incrementVersion) {
+                       @Nullable String organization,
+                       boolean overwriteOrganization,
+                       @Nullable String remoteImageName,
+                       @Nullable String dateFormat,
+                       boolean appendDate,
+                       boolean incrementVersion,
+                       boolean buildExe) {
         this.remoteImageStrategy = (remoteImageStrategy == null) ? RemoteImageNameStrategy.DO_NOT_USE : remoteImageStrategy;
         this.hubUrls = Util.fixEmptyAndTrim(hubUrls);
         this.organization = Util.fixEmptyAndTrim(organization);
@@ -69,6 +77,7 @@ public class PushBuilder extends BaseBuilder {
         this.dateFormat = Util.fixEmptyAndTrim(dateFormat);
         this.appendDate = appendDate;
         this.incrementVersion = incrementVersion;
+        this.buildExe = buildExe;
     }
 
     @Override
@@ -96,12 +105,12 @@ public class PushBuilder extends BaseBuilder {
                 switchHub(client, hubUrl, build);
 
                 Pusher pusher = new Pusher(client);
-                pusher.push(build);
+                pusher.push(build, buildExe);
             }
         } else {
             // push without changing current hub
             Pusher pusher = new Pusher(client);
-            pusher.push(build);
+            pusher.push(build, buildExe);
         }
 
         return true;
@@ -139,7 +148,8 @@ public class PushBuilder extends BaseBuilder {
                 tagGenerationStrategy,
                 organization,
                 overwriteOrganization,
-                hubUrls);
+                hubUrls,
+                buildExe);
     }
 
     private TagGenerationStrategy getTagGenerationStrategy() {
@@ -199,11 +209,13 @@ public class PushBuilder extends BaseBuilder {
                 String organization = null;
                 boolean overwriteOrganization = false;
                 boolean incrementVersion = false;
+                boolean buildExe = false;
 
                 if (pushJSON != null && !pushJSON.isNullObject()) {
                     String remoteImageStrategyName = pushJSON.getString("value");
                     remoteImageStrategy = RemoteImageNameStrategy.valueOf(remoteImageStrategyName);
                     hubUrls = getKeyOrDefault(formData, "hubUrls");
+                    buildExe = getBoolOrDefault(formData, "buildExe");
                     organization = getKeyOrDefault(pushJSON, "organization");
                     overwriteOrganization = getBoolOrDefault(pushJSON, "overwriteOrganization");
                     remoteImageName = getKeyOrDefault(pushJSON, "remoteImageName");
@@ -212,7 +224,16 @@ public class PushBuilder extends BaseBuilder {
                     incrementVersion = getBoolOrDefault(pushJSON, "incrementVersion");
                 }
 
-                return new PushBuilder(remoteImageStrategy, hubUrls, organization, overwriteOrganization, remoteImageName, dateFormat, appendDate, incrementVersion);
+                return new PushBuilder(
+                        remoteImageStrategy,
+                        hubUrls,
+                        organization,
+                        overwriteOrganization,
+                        remoteImageName,
+                        dateFormat,
+                        appendDate,
+                        incrementVersion,
+                        buildExe);
             } catch (JSONException ex) {
                 throw new IllegalStateException("Error while parsing data form", ex);
             }
