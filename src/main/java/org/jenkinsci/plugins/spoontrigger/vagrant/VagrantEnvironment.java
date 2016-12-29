@@ -1,7 +1,6 @@
 package org.jenkinsci.plugins.spoontrigger.vagrant;
 
 import com.google.common.base.Optional;
-import lombok.Getter;
 import org.jenkinsci.plugins.spoontrigger.utils.FileUtils;
 
 import java.io.File;
@@ -11,7 +10,6 @@ import java.nio.charset.Charset;
 import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.utils.FileUtils.quietDeleteDirectoryTreeIfExists;
@@ -32,8 +30,8 @@ public class VagrantEnvironment implements Closeable {
     public static final String INSTALLER_DIRECTORY_ON_GUEST_MACHINE = "C:\\vagrant\\install";
 
 
-    @Getter
-    private final Path workingDir;
+
+    public final Path workingDir;
 
     private VagrantEnvironment(Path workingDir) {
         this.workingDir = workingDir;

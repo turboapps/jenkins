@@ -2,7 +2,6 @@ package org.jenkinsci.plugins.spoontrigger.commands;
 
 import com.google.common.io.Closeables;
 import hudson.util.ArgumentListBuilder;
-import lombok.Getter;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -11,7 +10,6 @@ import java.util.regex.Pattern;
 
 public class FilterOutputCommand extends BaseCommand {
 
-    @Getter
     private int errorCode = 0;
     private OutputStreamCollector outputStream;
 
@@ -22,7 +20,7 @@ public class FilterOutputCommand extends BaseCommand {
     public void run(CommandDriver client) throws IllegalStateException {
         this.outputStream = new OutputStreamCollector(client.getLogger(), client.getCharset());
         try {
-            errorCode = client.launch(this.getArgumentList(), this.outputStream);
+            errorCode = client.launch(this.argumentList, this.outputStream);
         } finally {
             try {
                 final boolean swallowException = true;

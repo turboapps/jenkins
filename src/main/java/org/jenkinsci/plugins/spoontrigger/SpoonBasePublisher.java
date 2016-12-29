@@ -7,8 +7,6 @@ import hudson.model.BuildListener;
 import hudson.model.Result;
 import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Publisher;
-import lombok.AccessLevel;
-import lombok.Getter;
 import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.utils.TaskListeners;
@@ -21,8 +19,12 @@ import static org.jenkinsci.plugins.spoontrigger.Messages.requireInstanceOf;
 
 abstract class SpoonBasePublisher extends Publisher {
 
-    @Getter(AccessLevel.MODULE)
+
     private transient Optional<Image> image = Optional.absent();
+
+    protected Optional<Image> getImage() {
+        return image;
+    }
 
     @Override
     public BuildStepMonitor getRequiredMonitorService() {

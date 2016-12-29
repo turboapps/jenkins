@@ -31,8 +31,8 @@ public enum RemoteImageNameStrategy {
         @Override
         public Optional<Image> tryGetRemoteImage(PushConfig pushConfig, SpoonBuild build, BuildListener buildListener) {
             Optional<String> organization = Optional.absent();
-            if (pushConfig.isOverwriteOrganization()) {
-                organization = Optional.fromNullable(pushConfig.getOrganization());
+            if (pushConfig.overwriteOrganization) {
+                organization = Optional.fromNullable(pushConfig.organization);
             }
 
             PushCause cause = build.getCause(PushCause.class);
@@ -52,9 +52,9 @@ public enum RemoteImageNameStrategy {
         public void validate(PushConfig pushConfig, SpoonBuild build) {
             super.validate(pushConfig, build);
 
-            if (pushConfig.isOverwriteOrganization()) {
-                checkState(Patterns.isNullOrSingleWord(pushConfig.getOrganization()), REQUIRE_SINGLE_WORD_OR_NULL_SP,
-                        "Organization", pushConfig.getOrganization());
+            if (pushConfig.overwriteOrganization) {
+                checkState(Patterns.isNullOrSingleWord(pushConfig.organization), REQUIRE_SINGLE_WORD_OR_NULL_SP,
+                        "Organization", pushConfig.organization);
             }
 
             PushCause webHookCause = build.getCause(PushCause.class);
@@ -73,7 +73,7 @@ public enum RemoteImageNameStrategy {
     FIXED {
         @Override
         public Optional<Image> tryGetRemoteImage(PushConfig pushConfig, SpoonBuild build, BuildListener buildListener) {
-            String remoteImageName = pushConfig.getRemoteImageName();
+            String remoteImageName = pushConfig.remoteImageName;
             String suffix = getSuffix(pushConfig, build, buildListener);
             return Optional.of(Image.parse(remoteImageName + ":" +  suffix));
         }
@@ -82,12 +82,12 @@ public enum RemoteImageNameStrategy {
         public void validate(PushConfig pushConfig, SpoonBuild build) {
             super.validate(pushConfig, build);
 
-            checkState(Patterns.isNullOrSingleWord(pushConfig.getRemoteImageName()), REQUIRE_SINGLE_WORD_OR_NULL_SP,
-                    "Remote image name", pushConfig.getRemoteImageName());
+            checkState(Patterns.isNullOrSingleWord(pushConfig.remoteImageName), REQUIRE_SINGLE_WORD_OR_NULL_SP,
+                    "Remote image name", pushConfig.remoteImageName);
 
-            switch (pushConfig.getTagGenerationStrategy()) {
+            switch (pushConfig.tagGenerationStrategy) {
                 case AppendDate: {
-                    String dateFormat = pushConfig.getDateFormat();
+                    String dateFormat = pushConfig.dateFormat;
                     checkState(Patterns.isNullOrSingleWord(dateFormat), REQUIRE_SINGLE_WORD_OR_NULL_SP, "Date format", dateFormat);
                     checkState(StringValidators.Predicates.IS_DATE_FORMAT.apply(dateFormat), REQUIRE_VALID_FORMAT_SP, "Date", dateFormat);
                     break;
@@ -97,9 +97,9 @@ public enum RemoteImageNameStrategy {
         }
 
         private String getSuffix(PushConfig pushConfig, SpoonBuild build, BuildListener buildListener) {
-            switch (pushConfig.getTagGenerationStrategy()) {
+            switch (pushConfig.tagGenerationStrategy) {
                 case AppendDate: {
-                    SimpleDateFormat dateFormat = new SimpleDateFormat(pushConfig.getDateFormat());
+                    SimpleDateFormat dateFormat = new SimpleDateFormat(pushConfig.dateFormat);
                     Date startDate = build.getStartDate();
                     return dateFormat.format(startDate);
                 }
@@ -115,7 +115,7 @@ public enum RemoteImageNameStrategy {
         private Version getLatestVersion(Image image, SpoonBuild build, BuildListener buildListener) {
             HubApi hubApi = HubApi.create(build, buildListener);
             Image latestImage = hubApi.getLatestVersion(image);
-            String rawTag = latestImage.getTag();
+            String rawTag = latestImage.tag;
             if (rawTag != null) {
                 Optional<Version> parsedVersion = Version.tryParse(rawTag);
                 if (parsedVersion.isPresent()) {
@@ -130,11 +130,11 @@ public enum RemoteImageNameStrategy {
         validate(config, build);
 
         Optional<Image> remoteImageName = tryGetRemoteImage(config, build, buildListener);
-        final Image imageToUse = remoteImageName.or(config.getLocalImage());
-        if (imageToUse.getNamespace() == null) {
+        final Image imageToUse = remoteImageName.or(config.localImage);
+        if (imageToUse.namespace == null) {
             Optional<StandardUsernamePasswordCredentials> credentials = build.getCredentials();
             if (credentials.isPresent()) {
-                return new Image(credentials.get().getUsername(), imageToUse.getRepo(), imageToUse.getTag());
+                return new Image(credentials.get().getUsername(), imageToUse.repo, imageToUse.tag);
             }
         }
         return imageToUse;

@@ -1,7 +1,6 @@
 package org.jenkinsci.plugins.spoontrigger.git;
 
 import hudson.Util;
-import lombok.Data;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -9,7 +8,7 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.jenkinsci.plugins.spoontrigger.Messages.*;
 
-@Data
+
 public final class Repository {
     private static final String ORGANIZATION_GROUP = "organization";
     private static final String PROJECT_GROUP = "project";
@@ -21,9 +20,9 @@ public final class Repository {
         GIT_REPOSITORY_PATTERN = Pattern.compile(pattern);
     }
 
-    private final String url;
-    private final String organization;
-    private final String project;
+    public final String url;
+    public final String organization;
+    public final String project;
 
     public Repository(String url) {
         checkArgument(Util.fixEmptyAndTrim(url) != null, REQUIRE_NON_EMPTY_STRING_S, "url", url);

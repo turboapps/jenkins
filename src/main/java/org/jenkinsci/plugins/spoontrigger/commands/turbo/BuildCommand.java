@@ -5,7 +5,6 @@ import com.google.common.collect.Iterables;
 import hudson.FilePath;
 import hudson.Util;
 import hudson.util.ArgumentListBuilder;
-import lombok.Getter;
 import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.commands.FilterOutputCommand;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
@@ -24,11 +23,17 @@ public final class BuildCommand extends FilterOutputCommand {
     private static final Pattern OUTPUT_ERROR_PATTERN = Pattern.compile("^Error:\\s+(.*)", Pattern.CASE_INSENSITIVE);
     private static final Pattern ERROR_IMAGE_EXISTS_PATTERN = Pattern.compile("image already exists", Pattern.CASE_INSENSITIVE);
 
-    @Getter
     private BuildFailure error;
 
-    @Getter
     private Optional<Image> outputImage = Optional.absent();
+
+    public BuildFailure getError() {
+        return error;
+    }
+
+    public Optional<Image> getOutputImage() {
+        return outputImage;
+    }
 
     private BuildCommand(ArgumentListBuilder argumentList) {
         super(argumentList);

@@ -13,8 +13,6 @@ import hudson.model.Result;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
-import lombok.Data;
-import lombok.Getter;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.commands.powershell.PowerShellCommand;
@@ -63,10 +61,8 @@ public class SnapshotBuilder extends BaseBuilder {
 
     private static final String IMAGE_NAME_FILE = "image.txt";
 
-    @Getter
     private final InstallScriptSettings installScriptSettings;
 
-    @Getter
     private final StartupFileSettings startupFileSettings;
 
     private final String xStudioPath;
@@ -74,19 +70,14 @@ public class SnapshotBuilder extends BaseBuilder {
     private final ArrayList<String> dependencies;
     private final ArrayList<String> snapshotPathsToDelete;
 
-    @Getter
     private final String preInstallScriptPath;
 
-    @Getter
     private final String postSnapshotScriptPath;
 
-    @Getter
     private final String resourceDirectoryPath;
 
-    @Getter
     private final boolean overwrite;
 
-    @Getter
     private final String vagrantBox;
 
     private Optional<Image> importAsImage = Optional.absent();
@@ -118,19 +109,19 @@ public class SnapshotBuilder extends BaseBuilder {
     }
 
     public InstallScriptStrategy getInstallScriptStrategy() {
-        return this.installScriptSettings.getStrategy();
+        return this.installScriptSettings.strategy;
     }
 
     public boolean getIgnoreExitCode() {
-        return this.installScriptSettings.isIgnoreExitCode();
+        return this.installScriptSettings.ignoreExitCode;
     }
 
     public String getSilentInstallArgs() {
-        return this.installScriptSettings.getSilentInstallArgs();
+        return this.installScriptSettings.silentInstallArgs;
     }
 
     public String getInstallScriptPath() {
-        return this.installScriptSettings.getInstallScriptPath();
+        return this.installScriptSettings.installScriptPath;
     }
 
     public StartupFileStrategy getStartupFileStrategy() {
@@ -153,7 +144,7 @@ public class SnapshotBuilder extends BaseBuilder {
         installScriptSettings.validate();
         startupFileSettings.validate();
 
-        build.setAllowOverwrite(overwrite);
+        build.allowOverwrite = overwrite;
     }
 
     @Override
@@ -182,7 +173,7 @@ public class SnapshotBuilder extends BaseBuilder {
     }
 
     private boolean shouldAbort(SpoonBuild build, BuildListener listener) {
-        if (build.isAllowOverwrite()) {
+        if (build.allowOverwrite) {
             return false;
         }
 
@@ -202,7 +193,7 @@ public class SnapshotBuilder extends BaseBuilder {
         } finally {
             // Vagrant working dir was moved to temp, because the Vagrant process running as a scheduled task
             // does not have write access to the build workspace in Program Files
-            deleteDirectoryTreeRetryOnFailure(vagrantEnv.getWorkingDir(), listener);
+            deleteDirectoryTreeRetryOnFailure(vagrantEnv.workingDir, listener);
         }
     }
 
@@ -280,7 +271,7 @@ public class SnapshotBuilder extends BaseBuilder {
             this.listener = listener;
 
             EnvVars env = this.build.getEnv().get();
-            FilePath vagrantDir = new FilePath(vagrantEnv.getWorkingDir().toFile());
+            FilePath vagrantDir = new FilePath(vagrantEnv.workingDir.toFile());
             this.commandDriver = CommandDriver.builder()
                     .charset(this.build.getCharset())
                     .env(env)
@@ -381,7 +372,7 @@ public class SnapshotBuilder extends BaseBuilder {
             HubApi hubApi = HubApi.create(build, listener);
             for (String dependency : dependencies) {
                 Image buildDependency = Image.parse(dependency);
-                Image dependencyToUse = buildDependency.getTag() == null ?
+                Image dependencyToUse = buildDependency.tag == null ?
                         hubApi.getLatestVersion(buildDependency) : buildDependency;
 
                 pull(dependencyToUse);
@@ -416,7 +407,7 @@ public class SnapshotBuilder extends BaseBuilder {
         private Optional<Image> getOutputImage() {
             // load image name from Vagrant working directory, because some snapshot projects extract product version after installation completed
             // otherwise use image name specified during build setup
-            String vagrantWorkingDirPath = vagrantEnv.getWorkingDir().toString();
+            String vagrantWorkingDirPath = vagrantEnv.workingDir.toString();
             try {
                 Optional<Image> imageNameOpt = loadImportImageName(vagrantWorkingDirPath);
                 return imageNameOpt.or(importAsImage);
@@ -445,12 +436,12 @@ public class SnapshotBuilder extends BaseBuilder {
         }
     }
 
-    @Data
+
     public static class InstallScriptSettings implements Serializable {
-        private InstallScriptStrategy strategy;
-        private String silentInstallArgs;
-        private boolean ignoreExitCode;
-        private String installScriptPath;
+        public final InstallScriptStrategy strategy;
+        public final String silentInstallArgs;
+        public final boolean ignoreExitCode;
+        public final String installScriptPath;
 
         public InstallScriptSettings(InstallScriptStrategy strategy, String silentInstallArgs, boolean ignoreExitCode, String installScriptPath) {
             this.strategy = strategy;
@@ -494,10 +485,10 @@ public class SnapshotBuilder extends BaseBuilder {
         }
     }
 
-    @Data
+
     public static class StartupFileSettings implements Serializable {
-        private StartupFileStrategy strategy;
-        private String startupFilePath;
+        private final StartupFileStrategy strategy;
+        private final String startupFilePath;
 
         public StartupFileSettings(StartupFileStrategy strategy, String startupFilePath) {
             this.strategy = strategy;
@@ -532,6 +523,14 @@ public class SnapshotBuilder extends BaseBuilder {
                 default:
                     throw new IllegalStateException("Unknown startup file strategy: " + String.valueOf(strategy));
             }
+        }
+
+        public StartupFileStrategy getStrategy() {
+            return strategy;
+        }
+
+        public String getStartupFilePath() {
+            return startupFilePath;
         }
     }
 
@@ -573,10 +572,8 @@ public class SnapshotBuilder extends BaseBuilder {
             DEPENDENCY_VALIDATOR = StringValidators.isNotNull(String.format(IGNORE_PARAMETER, "Parameter"), Level.OK);
         }
 
-        @Getter
         private String xStudioPath;
 
-        @Getter
         private String xStudioLicensePath;
 
         private String vagrantBox;
@@ -616,8 +613,8 @@ public class SnapshotBuilder extends BaseBuilder {
             InstallScriptSettings installSettings = InstallScriptSettings.fromJson(jsonWrapper.getObject("installScriptStrategy").orNull());
             StartupFileSettings startupFileSettings = StartupFileSettings.fromJson(jsonWrapper.getObject("startupFileStrategy").orNull());
             return new SnapshotBuilder(
-                    getXStudioPath(),
-                    getXStudioLicensePath(),
+                    xStudioPath,
+                    xStudioLicensePath,
                     vagrantBoxToUse,
                     overwrite,
                     preInstallScriptPath,

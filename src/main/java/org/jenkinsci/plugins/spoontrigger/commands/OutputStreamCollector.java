@@ -3,7 +3,6 @@ package org.jenkinsci.plugins.spoontrigger.commands;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import hudson.console.LineTransformationOutputStream;
-import lombok.Getter;
 import org.jenkinsci.plugins.spoontrigger.utils.Patterns;
 
 import java.io.IOException;
@@ -12,6 +11,8 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -22,7 +23,6 @@ public class OutputStreamCollector extends LineTransformationOutputStream {
     private static final int MAX_LENGTH = 32 * 1024 * 10204;
     private static final Pattern MarqueePattern = Pattern.compile("^(?<line>.*?)[\\\\|/\\-]?$");
 
-    @Getter
     private final ArrayList<String> lines;
     private String lastLine;
     private int totalBytes;
@@ -37,6 +37,10 @@ public class OutputStreamCollector extends LineTransformationOutputStream {
         this.lines = new ArrayList<String>();
         this.lastLine = null;
         this.totalBytes = 0;
+    }
+
+    public List<String> getLines() {
+        return Collections.unmodifiableList(lines);
     }
 
     @Override

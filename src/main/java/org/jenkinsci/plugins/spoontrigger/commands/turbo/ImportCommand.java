@@ -3,7 +3,6 @@ package org.jenkinsci.plugins.spoontrigger.commands.turbo;
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import hudson.util.ArgumentListBuilder;
-import lombok.Getter;
 import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.commands.FilterOutputCommand;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
@@ -17,7 +16,7 @@ import static org.jenkinsci.plugins.spoontrigger.Messages.REQUIRE_PRESENT_S;
 public class ImportCommand extends FilterOutputCommand {
     private static final Pattern OUTPUT_IMAGE_PATTERN = Pattern.compile("^Output\\simage:\\s+(?<image>\\S+)$");
 
-    @Getter
+
     private Optional<Image> outputImage = Optional.absent();
 
     protected ImportCommand(ArgumentListBuilder argumentList) {
@@ -33,6 +32,10 @@ public class ImportCommand extends FilterOutputCommand {
             String outputImageName = Iterables.getLast(images);
             outputImage = Optional.of(Image.parse(outputImageName));
         }
+    }
+
+    public Optional<Image> getOutputImage() {
+        return outputImage;
     }
 
     public static CommandBuilder builder() {

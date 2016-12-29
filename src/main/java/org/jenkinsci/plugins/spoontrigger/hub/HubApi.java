@@ -3,7 +3,6 @@ package org.jenkinsci.plugins.spoontrigger.hub;
 import com.google.common.base.Optional;
 import com.google.common.collect.Ordering;
 import hudson.model.BuildListener;
-import lombok.SneakyThrows;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import org.apache.commons.httpclient.HttpStatus;
@@ -42,7 +41,7 @@ public class HubApi {
         final String hubUrl = getHubUrl(build, defaultHubUrl);
 
         TurboTool turboInstallation = TurboTool.getDefaultInstallation();
-        final String hubApiKey = turboInstallation.getHubApiKey();
+        final String hubApiKey = turboInstallation.hubApiKey;
         return new HubApi(hubUrl, hubApiKey, listener);
     }
 
@@ -52,9 +51,8 @@ public class HubApi {
         this.listener = listener;
     }
 
-    @SneakyThrows
     public Image getLatestVersion(Image image) {
-        checkArgument(image.getNamespace() != null, "image");
+        checkArgument(image.namespace != null, "image");
 
         try {
             Optional<JSONArray> tags = getTags(image);
@@ -73,7 +71,7 @@ public class HubApi {
                 }
                 if (!versions.isEmpty()) {
                     Version maxVersion = Ordering.<Version>natural().max(versions);
-                    return new Image(image.getNamespace(), image.getRepo(), maxVersion.toString());
+                    return new Image(image.namespace, image.repo, maxVersion.toString());
                 }
             }
 
@@ -84,23 +82,23 @@ public class HubApi {
                     ex.getMessage());
             log(listener, msg, ex);
 
-            throw new Exception(msg, ex);
+            throw new RuntimeException(msg, ex);
         }
 
         return image;
     }
 
     public boolean isAvailableRemotely(Image image) throws Exception {
-        checkArgument(image.getNamespace() != null, "image");
+        checkArgument(image.namespace != null, "image");
 
         try {
             Optional<JSONArray> tags = getTags(image);
 
-            if (image.getTag() == null) {
+            if (image.tag == null) {
                 return true;
             }
 
-            return tags.isPresent() && tags.get().contains(image.getTag());
+            return tags.isPresent() && tags.get().contains(image.tag);
         } catch (Exception ex) {
             String msg = String.format(
                     "Failed to check if image %s is available in the remote repo: %s",
@@ -167,7 +165,7 @@ public class HubApi {
 
     private URI getRepoUrl(Image image) throws URISyntaxException {
         URIBuilder builder = new URIBuilder(hubUrl)
-                .setPath("/io/_hub/repo/" + image.getNamespace() + "/" + image.getRepo());
+                .setPath("/io/_hub/repo/" + image.namespace + "/" + image.repo);
         return builder.build();
     }
 }

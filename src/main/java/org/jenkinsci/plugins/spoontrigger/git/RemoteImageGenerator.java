@@ -12,7 +12,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 public final class RemoteImageGenerator {
 
     public static String fromPush(PushCause cause, Optional<String> organization) {
-        return generateRemoteImageName(organization, cause.getRepository(), cause.getBranch());
+        return generateRemoteImageName(organization, cause.repository, cause.branch);
     }
 
     public static String fromPull(BuildData buildData, Optional<String> organization) {
@@ -35,7 +35,7 @@ public final class RemoteImageGenerator {
     }
 
     private static String generateRemoteImageName(Optional<String> organization, Repository repository, Branch branch) {
-        String namespace = organization.or(repository.getOrganization());
-        return String.format("%s/%s:%s.%s", namespace, repository.getProject(), branch.getShortName(), branch.getHeadChunk());
+        String namespace = organization.or(repository.organization);
+        return String.format("%s/%s:%s.%s", namespace, repository.project, branch.getShortName(), branch.getHeadChunk());
     }
 }
