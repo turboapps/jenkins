@@ -17,7 +17,7 @@ public final class Validators {
             validator.validate(value);
             return FormValidation.ok();
         } catch (ValidationException ex) {
-            return ex.getFailureMessage();
+            return ex.failureMessage;
         }
     }
 

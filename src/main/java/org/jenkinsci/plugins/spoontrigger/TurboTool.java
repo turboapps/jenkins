@@ -8,7 +8,6 @@ import hudson.tools.ToolInstallation;
 import hudson.tools.ToolProperty;
 import hudson.util.FormValidation;
 import jenkins.model.Jenkins;
-import lombok.Getter;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.spoontrigger.utils.JsonOption;
 import org.jenkinsci.plugins.spoontrigger.validation.*;
@@ -28,11 +27,10 @@ public class TurboTool extends ToolInstallation {
 
     public static transient final String DEFAULT = "Default";
 
-    @Getter
-    private final String hubApiKey;
 
-    @Getter
-    private final String screenshotDir;
+    public final String hubApiKey;
+
+    public final String screenshotDir;
 
     @DataBoundConstructor
     public TurboTool(String name, String hubApiKey, String screenshotDir) {
@@ -82,10 +80,9 @@ public class TurboTool extends ToolInstallation {
                 FileValidators.isPathAbsolute(PATH_SHOULD_BE_ABSOLUTE, Level.WARNING)
         );
 
-        @Getter
+
         private String hubApiKey;
 
-        @Getter
         private String screenshotDir;
 
         public DescriptorImpl() {
@@ -139,7 +136,7 @@ public class TurboTool extends ToolInstallation {
                 DIR_PATH_VALIDATOR.validate(outputFile);
                 return FormValidation.ok();
             } catch (ValidationException ex) {
-                return ex.getFailureMessage();
+                return ex.failureMessage;
             }
         }
 

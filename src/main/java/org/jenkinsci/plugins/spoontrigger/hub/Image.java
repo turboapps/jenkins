@@ -1,23 +1,21 @@
 package org.jenkinsci.plugins.spoontrigger.hub;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-@EqualsAndHashCode
 public class Image {
     private static final Pattern ParseImageNamePattern = Pattern.compile("^(?:(?<namespace>[^\\s/]+)/)?(?<repo>[^\\s:]+)(?::(?<tag>\\S+))?$");
 
-    @Getter
-    private final String repo;
-    @Getter
-    private final String namespace;
-    @Getter
-    private final String tag;
+
+    public final String repo;
+
+    public final String namespace;
+
+    public final String tag;
 
     public static Image parse(String imageName) {
         checkArgument(imageName != null, "imageName");
@@ -52,5 +50,20 @@ public class Image {
         }
 
         return result;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Image image = (Image) o;
+        return Objects.equals(repo, image.repo) &&
+                Objects.equals(namespace, image.namespace) &&
+                Objects.equals(tag, image.tag);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(repo, namespace, tag);
     }
 }

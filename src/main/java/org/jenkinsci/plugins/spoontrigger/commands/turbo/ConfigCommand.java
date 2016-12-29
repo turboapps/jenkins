@@ -3,7 +3,6 @@ package org.jenkinsci.plugins.spoontrigger.commands.turbo;
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import hudson.util.ArgumentListBuilder;
-import lombok.Getter;
 import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.commands.FilterOutputCommand;
 
@@ -14,8 +13,12 @@ public class ConfigCommand extends FilterOutputCommand {
 
     private static final Pattern HUB_URL_PATTERN = Pattern.compile("^Hub server:\\s+(?<hubUrl>\\S+)$");
 
-    @Getter
+
     private Optional<String> hub = Optional.absent();
+
+    public Optional<String> getHub() {
+        return hub;
+    }
 
     ConfigCommand(ArgumentListBuilder argumentList) {
         super(argumentList);

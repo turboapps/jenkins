@@ -49,13 +49,13 @@ public class ImageCheckBuilder extends BaseBuilder {
         checkState(outputImage != null, REQUIRE_OUTPUT_IMAGE);
 
         CheckCommand command = createCheckCommand(outputImage);
-        scheduledTasksApi.run("test_" + outputImage.getNamespace() + "_" + outputImage.getRepo(), command.getArgumentList().toString());
+        scheduledTasksApi.run("test_" + outputImage.namespace + "_" + outputImage.repo, command.argumentList.toString());
 
         return true;
     }
 
     private CheckCommand createCheckCommand(Image image) {
-        String screenshotDir = TurboTool.getDefaultInstallation().getScreenshotDir();
+        String screenshotDir = TurboTool.getDefaultInstallation().screenshotDir;
         checkState(screenshotDir != null, REQUIRE_SCREENSHOT_DIR);
 
         CheckCommand.CommandBuilder cmdBuilder = CheckCommand.builder()
@@ -69,6 +69,8 @@ public class ImageCheckBuilder extends BaseBuilder {
 
         return cmdBuilder.build();
     }
+
+
 
     @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {

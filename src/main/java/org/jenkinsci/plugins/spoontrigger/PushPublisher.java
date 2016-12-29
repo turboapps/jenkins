@@ -10,7 +10,6 @@ import hudson.model.BuildListener;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Publisher;
 import hudson.util.FormValidation;
-import lombok.Getter;
 import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.PushCommand;
@@ -39,20 +38,14 @@ import static org.jenkinsci.plugins.spoontrigger.Messages.*;
 @Deprecated
 public class PushPublisher extends SpoonBasePublisher {
     @Nullable
-    @Getter
     private final String remoteImageName;
     @Nullable
-    @Getter
     private final String dateFormat;
     @Nullable
-    @Getter
     private final String organization;
 
-    @Getter
     private final RemoteImageNameStrategy remoteImageStrategy;
-    @Getter
     private final boolean appendDate;
-    @Getter
     private final boolean overwriteOrganization;
 
     private static final String NO_HUB_URLS_DEFINED = null;
@@ -75,6 +68,33 @@ public class PushPublisher extends SpoonBasePublisher {
         CommandDriver client = super.createClient(build, launcher, listener);
         PushCommand pushCmd = this.createPushCommand(build, listener);
         pushCmd.run(client);
+    }
+
+    @Nullable
+    public String getRemoteImageName() {
+        return remoteImageName;
+    }
+
+    @Nullable
+    public String getDateFormat() {
+        return dateFormat;
+    }
+
+    @Nullable
+    public String getOrganization() {
+        return organization;
+    }
+
+    public RemoteImageNameStrategy getRemoteImageStrategy() {
+        return remoteImageStrategy;
+    }
+
+    public boolean isAppendDate() {
+        return appendDate;
+    }
+
+    public boolean isOverwriteOrganization() {
+        return overwriteOrganization;
     }
 
     private PushCommand createPushCommand(SpoonBuild spoonBuild, BuildListener listener) {

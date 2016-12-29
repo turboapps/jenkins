@@ -14,7 +14,6 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
-import lombok.Getter;
 import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.ConfigCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.LoginCommand;
@@ -38,9 +37,7 @@ import static org.jenkinsci.plugins.spoontrigger.utils.Credentials.fillCredentia
 
 public class LoginBuilder extends BaseBuilder {
 
-    @Getter
     private final String credentialsId;
-    @Getter
     private final String hubUrl;
 
     private transient String hubUrlToUse;
@@ -83,6 +80,14 @@ public class LoginBuilder extends BaseBuilder {
             return hubUrl;
         }
         return HubApi.DEFAULT_HUB_URL;
+    }
+
+    public String getCredentialsId() {
+        return credentialsId;
+    }
+
+    public String getHubUrlToUse() {
+        return hubUrlToUse;
     }
 
     private void switchHub(CommandDriver client) {

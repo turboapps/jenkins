@@ -8,8 +8,6 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
-import lombok.Data;
-import lombok.Getter;
 import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.BuildCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.VersionCommand;
@@ -33,31 +31,22 @@ import static org.jenkinsci.plugins.spoontrigger.utils.LogUtils.log;
 public class ScriptBuilder extends LoginBuilder {
 
     @Nullable
-    @Getter
     private final String scriptFilePath;
     @Nullable
-    @Getter
     private final String imageName;
     @Nullable
-    @Getter
     private final String vmVersion;
     @Nullable
-    @Getter
     private final String containerWorkingDir;
 
     @Nullable
-    @Getter
     private final String routeFile;
 
     @Nullable
-    @Getter
     private final MountSettings mountSettings;
 
-    @Getter
     private final boolean diagnostic;
-    @Getter
     private final boolean noBase;
-    @Getter
     private final boolean overwrite;
 
     @DataBoundConstructor
@@ -87,15 +76,15 @@ public class ScriptBuilder extends LoginBuilder {
     }
 
     public String getSourceContainer() {
-        return (this.mountSettings != null) ? this.mountSettings.getSourceContainer() : null;
+        return (this.mountSettings != null) ? this.mountSettings.sourceContainer : null;
     }
 
     public String getTargetFolder() {
-        return (this.mountSettings != null) ? this.mountSettings.getTargetFolder() : null;
+        return (this.mountSettings != null) ? this.mountSettings.targetFolder : null;
     }
 
     public String getSourceFolder() {
-        return (this.mountSettings != null) ? this.mountSettings.getSourceFolder() : null;
+        return (this.mountSettings != null) ? this.mountSettings.sourceFolder: null;
     }
 
     @Override
@@ -104,7 +93,7 @@ public class ScriptBuilder extends LoginBuilder {
 
         checkState(build.getEnv().isPresent(), "Env is not defined");
 
-        build.setAllowOverwrite(this.overwrite);
+        build.allowOverwrite = this.overwrite;
 
         FilePath scriptPath = this.resolveScriptFilePath(build, build.getEnv().get(), listener);
         build.setScript(scriptPath);
@@ -136,6 +125,49 @@ public class ScriptBuilder extends LoginBuilder {
             build.setResult(Result.ABORTED);
         }
         return false;
+    }
+
+
+    @Nullable
+    public String getScriptFilePath() {
+        return scriptFilePath;
+    }
+
+    @Nullable
+    public String getImageName() {
+        return imageName;
+    }
+
+    @Nullable
+    public String getVmVersion() {
+        return vmVersion;
+    }
+
+    @Nullable
+    public String getContainerWorkingDir() {
+        return containerWorkingDir;
+    }
+
+    @Nullable
+    public String getRouteFile() {
+        return routeFile;
+    }
+
+    @Nullable
+    public MountSettings getMountSettings() {
+        return mountSettings;
+    }
+
+    public boolean isDiagnostic() {
+        return diagnostic;
+    }
+
+    public boolean isNoBase() {
+        return noBase;
+    }
+
+    public boolean isOverwrite() {
+        return overwrite;
     }
 
     private boolean shouldAbort(SpoonBuild build, BuildCommand command) {
@@ -207,12 +239,12 @@ public class ScriptBuilder extends LoginBuilder {
         throw new IllegalStateException(msg);
     }
 
-    @Data
+
     public static final class MountSettings {
 
-        private final String sourceContainer;
-        private final String sourceFolder;
-        private final String targetFolder;
+        public final String sourceContainer;
+        public final String sourceFolder;
+        public final String targetFolder;
 
         @DataBoundConstructor
         public MountSettings(String sourceContainer, String sourceFolder, String targetFolder) {
@@ -287,7 +319,7 @@ public class ScriptBuilder extends LoginBuilder {
                 FILE_PATH_FILE_VALIDATOR.validate(scriptFile);
                 return FormValidation.ok();
             } catch (ValidationException ex) {
-                return ex.getFailureMessage();
+                return ex.failureMessage;
             }
         }
 
@@ -302,7 +334,7 @@ public class ScriptBuilder extends LoginBuilder {
                 FILE_PATH_FILE_VALIDATOR.validate(scriptFile);
                 return FormValidation.ok();
             } catch (ValidationException ex) {
-                return ex.getFailureMessage();
+                return ex.failureMessage;
             }
         }
 
