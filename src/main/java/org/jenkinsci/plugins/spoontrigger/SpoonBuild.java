@@ -70,6 +70,14 @@ public class SpoonBuild extends Build<SpoonProject, SpoonBuild> {
         return credentials;
     }
 
+    public boolean isAllowOverwrite() {
+        return allowOverwrite;
+    }
+
+    public boolean isBuildExe() {
+        return buildExe;
+    }
+
     @Override
     public void run() {
         this.execute(new SpoonBuildExecution());
