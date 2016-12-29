@@ -9,6 +9,7 @@ import hudson.triggers.TriggerDescriptor;
 import hudson.util.FormValidation;
 import hudson.util.SequentialExecutionQueue;
 import jenkins.model.Jenkins;
+import lombok.Getter;
 import org.jenkinsci.plugins.spoontrigger.git.PushCause;
 import org.jenkinsci.plugins.spoontrigger.utils.Identity;
 import org.jenkinsci.plugins.spoontrigger.utils.Patterns;
@@ -26,8 +27,8 @@ public class SpoonTrigger extends Trigger<AbstractProject<?, ?>> {
 
     private static final Logger LOGGER = Logger.getLogger(SpoonTrigger.class.getName());
 
-
-    public final String repositoryUrl;
+    @Getter
+    private final String repositoryUrl;
 
     @DataBoundConstructor
     public SpoonTrigger(String repositoryUrl) {
@@ -64,7 +65,7 @@ public class SpoonTrigger extends Trigger<AbstractProject<?, ?>> {
             final boolean scheduled = this.project.scheduleBuild(this.cause);
             String msgPattern = scheduled ? "Changes detected in (%s). Triggering (%s) build."
                     : "Ignoring changes in (%s). Build (%s) is already in the queue";
-            String msg = String.format(msgPattern, this.cause.repository, this.project.getName());
+            String msg = String.format(msgPattern, this.cause.getRepository(), this.project.getName());
             LOGGER.info(msg);
         }
     }

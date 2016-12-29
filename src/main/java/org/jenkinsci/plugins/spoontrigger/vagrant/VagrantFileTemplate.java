@@ -4,6 +4,7 @@ import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
 import com.google.common.io.Resources;
 import hudson.util.ArgumentListBuilder;
+import lombok.Data;
 import org.jenkinsci.plugins.spoontrigger.SpoonBuild;
 import org.stringtemplate.v4.ST;
 import org.stringtemplate.v4.misc.ErrorBuffer;
@@ -26,11 +27,11 @@ public class VagrantFileTemplate {
     private static final String XSTUDIO_PATH = TOOLS_DIR + "\\xstudio.exe";
     private static final String SNAPSHOT_PATH = OUTPUT_DIR + "\\snapshot";
 
-
+    @Data
     public static class Config {
-        public final String preInstallScriptName;
-        public final String installScriptName;
-        public final String vagrantBox;
+        private final String preInstallScriptName;
+        private final String installScriptName;
+        private final String vagrantBox;
 
         public Config(@Nullable String preInstallScriptName, String installScriptName, String vagrantBox) {
             this.preInstallScriptName = preInstallScriptName;
@@ -69,11 +70,11 @@ public class VagrantFileTemplate {
     }
 
     public String getBox() {
-        return config.vagrantBox;
+        return config.getVagrantBox();
     }
 
     public String getPreInstallScript() {
-        return config.preInstallScriptName;
+        return config.getPreInstallScriptName();
     }
 
     public String getBeforeSnapshotCommand() {
@@ -86,11 +87,11 @@ public class VagrantFileTemplate {
     }
 
     public String getPreInstallCommand() {
-        return "install\\\\" + config.preInstallScriptName;
+        return "install\\\\" + config.getPreInstallScriptName();
     }
 
     public String getInstallCommand() {
-        return "install\\\\" + config.installScriptName;
+        return "install\\\\" + config.getInstallScriptName();
     }
 
     public String getAfterSnapshotCommand() {

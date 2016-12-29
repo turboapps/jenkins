@@ -13,6 +13,8 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.ArgumentListBuilder;
 import hudson.util.FormValidation;
+import lombok.Data;
+import lombok.Getter;
 import org.jenkinsci.plugins.spoontrigger.commands.BaseCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.ModelCommand;
@@ -45,7 +47,9 @@ public class ModelBuilder extends BaseBuilder {
     private static final String MODEL_DIR = "model";
 
     @Nullable
+    @Getter
     private final PushGuardSettings pushGuardSettings;
+    @Getter
     private final String hubUrls;
 
     @DataBoundConstructor
@@ -59,7 +63,7 @@ public class ModelBuilder extends BaseBuilder {
             return null;
         }
 
-        Double minBufferSizeMB = this.pushGuardSettings.minBufferSizeMB.orNull();
+        Double minBufferSizeMB = this.pushGuardSettings.getMinBufferSizeMB().orNull();
         return minBufferSizeMB != null ? minBufferSizeMB.toString() : null;
     }
 
@@ -178,7 +182,7 @@ public class ModelBuilder extends BaseBuilder {
                 return true;
             }
 
-            Optional<Double> minBufferSizeMB = pushGuardSettings.minBufferSizeMB;
+            Optional<Double> minBufferSizeMB = pushGuardSettings.getMinBufferSizeMB();
             if (minBufferSizeMB.isPresent()) {
                 final long minBufferSize = Double.valueOf(minBufferSizeMB.get() * 1024 * 1024).longValue();
                 final long actualBufferSize = getBufferSize();
@@ -256,8 +260,10 @@ public class ModelBuilder extends BaseBuilder {
         return projectName.toLowerCase(Locale.ROOT);
     }
 
+    @Data
     public static final class PushGuardSettings {
-        public final Optional<Double> minBufferSizeMB;
+        @Getter
+        private Optional<Double> minBufferSizeMB;
 
         @DataBoundConstructor
         public PushGuardSettings(String minBufferSize) {

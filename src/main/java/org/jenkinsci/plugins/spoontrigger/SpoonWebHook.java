@@ -117,9 +117,9 @@ public class SpoonWebHook implements UnprotectedRootAction {
     }
 
     private static boolean shouldRun(SpoonTrigger trigger, PushCause cause) {
-        String triggerRepo = Util.fixNull(trigger.repositoryUrl);
-        Repository causeRepo = cause.repository;
-        return triggerRepo.equalsIgnoreCase(causeRepo.url);
+        String triggerRepo = Util.fixNull(trigger.getRepositoryUrl());
+        Repository causeRepo = cause.getRepository();
+        return triggerRepo.equalsIgnoreCase(causeRepo.getUrl());
     }
 
     private static boolean isJenkinsValidation(StaplerRequest request) {

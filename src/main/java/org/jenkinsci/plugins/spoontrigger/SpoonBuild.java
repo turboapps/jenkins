@@ -7,6 +7,8 @@ import hudson.FilePath;
 import hudson.Launcher;
 import hudson.model.Build;
 import hudson.model.BuildListener;
+import lombok.Getter;
+import lombok.Setter;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.ConfigCommand;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.utils.LogUtils;
@@ -20,22 +22,24 @@ public class SpoonBuild extends Build<SpoonProject, SpoonBuild> {
 
     private static final Pattern INVALID_CHARACTERS_PATTERN = Pattern.compile("\\W+");
 
+    @Getter
+    @Setter
+    private boolean allowOverwrite = false;
 
-    public boolean allowOverwrite = false;
-
-
+    @Getter
     private Optional<StandardUsernamePasswordCredentials> credentials = Optional.absent();
-
+    @Getter
     private Optional<Image> outputImage = Optional.absent();
-
+    @Getter
     private Optional<Image> remoteImage = Optional.absent();
-
+    @Getter
     private Optional<FilePath> script = Optional.absent();
-
+    @Getter
     private Optional<EnvVars> env = Optional.absent();
-
+    @Getter
     private Optional<String> hubUrl = Optional.absent();
 
+    @Getter
     private boolean buildExe = false;
 
     public SpoonBuild(SpoonProject project) throws IOException {
@@ -44,30 +48,6 @@ public class SpoonBuild extends Build<SpoonProject, SpoonBuild> {
 
     public SpoonBuild(SpoonProject project, File buildDir) throws IOException {
         super(project, buildDir);
-    }
-
-    public Optional<Image> getRemoteImage() {
-        return remoteImage;
-    }
-
-    public Optional<EnvVars> getEnv() {
-        return env;
-    }
-
-    public Optional<Image> getOutputImage() {
-        return outputImage;
-    }
-
-    public Optional<FilePath> getScript() {
-        return script;
-    }
-
-    public Optional<String> getHubUrl() {
-        return hubUrl;
-    }
-
-    public Optional<StandardUsernamePasswordCredentials> getCredentials() {
-        return credentials;
     }
 
     @Override
@@ -85,7 +65,7 @@ public class SpoonBuild extends Build<SpoonProject, SpoonBuild> {
                 ConfigCommand command = ConfigCommand.builder().reset(true).build();
                 Launcher launcher = getLauncher();
                 try {
-                    int errorCode = launcher.launch().cmds(command.argumentList.toList()).join();
+                    int errorCode = launcher.launch().cmds(command.getArgumentList().toList()).join();
                     if (errorCode != 0) {
                         LogUtils.log(listener, String.format("Failed to reset default configuration. Process returned non-zero error code: %s.", errorCode));
                     }

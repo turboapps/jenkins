@@ -10,6 +10,7 @@ import hudson.model.Result;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
+import lombok.Getter;
 import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
@@ -36,17 +37,26 @@ import static org.jenkinsci.plugins.spoontrigger.Messages.*;
 
 public class PushBuilder extends BaseBuilder {
     @Nullable
+    @Getter
     private final String remoteImageName;
     @Nullable
+    @Getter
     private final String dateFormat;
     @Nullable
+    @Getter
     private final String organization;
 
+    @Getter
     private final RemoteImageNameStrategy remoteImageStrategy;
+    @Getter
     private final boolean appendDate;
+    @Getter
     private final boolean incrementVersion;
+    @Getter
     private final boolean overwriteOrganization;
+    @Getter
     private final String hubUrls;
+    @Getter
     private final boolean buildExe;
 
 
@@ -117,7 +127,7 @@ public class PushBuilder extends BaseBuilder {
     }
 
     private boolean shouldAbort(Image remoteImage, SpoonBuild build, BuildListener listener) {
-        if (build.allowOverwrite) {
+        if (build.isAllowOverwrite()) {
             return false;
         }
 

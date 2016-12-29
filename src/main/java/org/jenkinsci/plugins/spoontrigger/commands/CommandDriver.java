@@ -5,6 +5,8 @@ import hudson.FilePath;
 import hudson.Launcher;
 import hudson.model.TaskListener;
 import hudson.util.ArgumentListBuilder;
+import lombok.AccessLevel;
+import lombok.Getter;
 import org.jenkinsci.plugins.spoontrigger.SpoonBuild;
 
 import java.io.IOException;
@@ -26,11 +28,8 @@ public final class CommandDriver {
     private Launcher launcher;
     private boolean ignoreErrorCode = false;
 
+    @Getter(AccessLevel.PACKAGE)
     private Charset charset;
-
-    public Charset getCharset() {
-        return charset;
-    }
 
     public static DriverBuilder builder() {
         return new DriverBuilder();

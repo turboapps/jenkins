@@ -9,6 +9,6 @@ public abstract class VoidCommand extends BaseCommand {
     }
 
     public void run(CommandDriver client) throws IllegalStateException {
-        client.launch(this.argumentList);
+        client.launch(this.getArgumentList());
     }
 }

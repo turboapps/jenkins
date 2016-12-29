@@ -7,6 +7,7 @@ import hudson.model.*;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Publisher;
 import hudson.util.FormValidation;
+import lombok.Getter;
 import org.jenkinsci.plugins.spoontrigger.commands.turbo.ExportCommand;
 import org.jenkinsci.plugins.spoontrigger.commands.CommandDriver;
 import org.jenkinsci.plugins.spoontrigger.utils.AutoCompletion;
@@ -15,6 +16,7 @@ import org.jenkinsci.plugins.spoontrigger.validation.*;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
+import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 
@@ -23,9 +25,9 @@ import static org.jenkinsci.plugins.spoontrigger.Messages.*;
 
 public class ExportPublisher extends SpoonBasePublisher {
 
-
+    @Getter
     private final String outputFile;
-
+    @Nullable
     private transient FilePath runtimeOutputFile;
 
     @DataBoundConstructor
@@ -110,7 +112,7 @@ public class ExportPublisher extends SpoonBasePublisher {
                 OUTPUT_FILE_VALIDATOR.validate(outputFile);
                 return FormValidation.ok();
             } catch (ValidationException ex) {
-                return ex.failureMessage;
+                return ex.getFailureMessage();
             }
         }
 

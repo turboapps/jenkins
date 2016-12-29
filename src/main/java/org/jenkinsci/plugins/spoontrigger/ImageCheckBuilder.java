@@ -49,13 +49,13 @@ public class ImageCheckBuilder extends BaseBuilder {
         checkState(outputImage != null, REQUIRE_OUTPUT_IMAGE);
 
         CheckCommand command = createCheckCommand(outputImage);
-        scheduledTasksApi.run("test_" + outputImage.namespace + "_" + outputImage.repo, command.argumentList.toString());
+        scheduledTasksApi.run("test_" + outputImage.getNamespace() + "_" + outputImage.getRepo(), command.getArgumentList().toString());
 
         return true;
     }
 
     private CheckCommand createCheckCommand(Image image) {
-        String screenshotDir = TurboTool.getDefaultInstallation().screenshotDir;
+        String screenshotDir = TurboTool.getDefaultInstallation().getScreenshotDir();
         checkState(screenshotDir != null, REQUIRE_SCREENSHOT_DIR);
 
         CheckCommand.CommandBuilder cmdBuilder = CheckCommand.builder()
