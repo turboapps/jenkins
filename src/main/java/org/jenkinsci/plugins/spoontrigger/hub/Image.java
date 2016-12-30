@@ -23,7 +23,7 @@ public class Image {
         String imageNameToUse = imageName.trim();
         Matcher matcher = ParseImageNamePattern.matcher(imageNameToUse);
 
-        checkArgument(matcher.matches(), "failed to parse image name");
+        checkArgument(matcher.matches(), "failed to parse image name: " + imageName);
 
         String repo = matcher.group("repo");
         String namespace = matcher.group("namespace");
