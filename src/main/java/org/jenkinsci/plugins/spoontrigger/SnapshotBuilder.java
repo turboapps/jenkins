@@ -627,6 +627,14 @@ public class SnapshotBuilder extends BaseBuilder {
             return super.configure(req, json);
         }
 
+        public String getxStudioPath() {
+            return xStudioPath;
+        }
+
+        public String getxStudioLicensePath() {
+            return xStudioLicensePath;
+        }
+
         @Override
         public SnapshotBuilder newInstance(StaplerRequest req, JSONObject json)
                 throws FormException {
