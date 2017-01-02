@@ -95,6 +95,14 @@ public class TurboTool extends ToolInstallation {
             return "Turbo";
         }
 
+        public String getHubApiKey() {
+            return hubApiKey;
+        }
+
+        public String getScreenshotDir() {
+            return screenshotDir;
+        }
+
         public TurboTool getInstallation(String name) {
             for (TurboTool i : getInstallations()) {
                 if (i.getName().equals(name)) {
