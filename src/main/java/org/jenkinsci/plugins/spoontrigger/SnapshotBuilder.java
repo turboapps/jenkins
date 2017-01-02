@@ -65,8 +65,14 @@ public class SnapshotBuilder extends BaseBuilder {
 
     private final StartupFileSettings startupFileSettings;
 
-    private final String xStudioPath;
-    private final Optional<String> xStudioLicensePath;
+    /**
+     * Used to be persisted by accident. Now always populated from global config!     *
+     */
+    private transient String xStudioPath;
+    /**
+     * Used to be persisted by accident. Now always populated from global config!
+     */
+    private transient String xStudioLicensePath;
     private final ArrayList<String> dependencies;
     private final ArrayList<String> snapshotPathsToDelete;
 
@@ -97,7 +103,7 @@ public class SnapshotBuilder extends BaseBuilder {
             InstallScriptSettings installScriptSettings,
             StartupFileSettings startupFileSettings) {
         this.xStudioPath = Util.fixEmptyAndTrim(xStudioPath);
-        this.xStudioLicensePath = Optional.fromNullable(Util.fixEmptyAndTrim(xStudioLicensePath));
+        this.xStudioLicensePath = Util.fixEmptyAndTrim(xStudioLicensePath);
         this.vagrantBox = Util.fixEmptyAndTrim(vagrantBox);
         this.overwrite = overwrite;
         this.preInstallScriptPath = Util.fixEmptyAndTrim(preInstallScriptPath);
@@ -169,6 +175,14 @@ public class SnapshotBuilder extends BaseBuilder {
 
     @Override
     protected void prebuild(SpoonBuild build, BuildListener listener) {
+
+        /*
+         * Used to be persisted by accident. Now always populated from global config!
+         */
+        DescriptorImpl globalConfig = (DescriptorImpl)getDescriptor();
+        xStudioPath = globalConfig.getxStudioPath();
+        xStudioLicensePath = globalConfig.getxStudioLicensePath();
+
         checkState(xStudioPath != null, String.format(REQUIRE_NOT_NULL_OR_EMPTY_S, "xStudioPath"));
         checkState(vagrantBox != null, String.format(REQUIRE_NOT_NULL_OR_EMPTY_S, "vagrantBox"));
 
@@ -391,8 +405,8 @@ public class SnapshotBuilder extends BaseBuilder {
                     .xapplPath(vagrantEnv.getXapplPath().toString())
                     .imagePath(vagrantEnv.getImagePath().toString());
 
-            if (xStudioLicensePath.isPresent()) {
-                commandBuilder.licensePath(xStudioLicensePath.get());
+            if (xStudioLicensePath != null) {
+                commandBuilder.licensePath(xStudioLicensePath);
             }
 
             Optional<String> startupFile = startupFileSettings.getStartupFile();
