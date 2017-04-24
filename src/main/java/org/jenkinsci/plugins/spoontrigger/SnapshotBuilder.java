@@ -88,7 +88,6 @@ public class SnapshotBuilder extends BaseBuilder {
 
     private Optional<Image> importAsImage = Optional.absent();
 
-
     @DataBoundConstructor
     public SnapshotBuilder(
             String xStudioPath,
@@ -172,7 +171,6 @@ public class SnapshotBuilder extends BaseBuilder {
         return vagrantBox;
     }
 
-
     @Override
     protected void prebuild(SpoonBuild build, BuildListener listener) {
 
@@ -243,7 +241,7 @@ public class SnapshotBuilder extends BaseBuilder {
     }
 
     private VagrantEnvironment createVagrantEnvironment(SpoonBuild build, String buildWorkspace) throws IOException {
-        Path workingDir = Files.createTempDirectory("jenkins-" + build.getSanitizedProjectName() + "-build-");
+        Path workingDir = Files.createTempDirectory(Paths.get("C:/JenkinsTemp"),"jenkins-" + build.getSanitizedProjectName() + "-build-");
         VagrantEnvironment.EnvironmentBuilder environmentBuilder = VagrantEnvironment.builder(workingDir)
                 .box(vagrantBox)
                 .xStudioPath(xStudioPath);
