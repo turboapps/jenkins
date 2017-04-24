@@ -76,11 +76,19 @@ public class ModelBuilder extends BaseBuilder {
         Image outputImage = build.getOutputImage().orNull();
         checkState(outputImage != null, REQUIRE_OUTPUT_IMAGE);
 
-        Path tempDir = Files.createTempDirectory("jenkins-model-" + build.getSanitizedProjectName() + "-build-");
+        Path tempDir = Files.createTempDirectory(Paths.get("C:/JenkinsTemp"),"jenkins-model-" + build.getSanitizedProjectName() + "-build-");
         try {
             ModelWorker worker = new ModelWorker(tempDir, build, launcher, listener, hubUrlsAsList());
             worker.buildModel();
-        } finally {
+        }
+        catch (Exception e) {
+            Result currentResult = build.getResult();
+            if (currentResult == null || currentResult.isBetterThan(Result.UNSTABLE)) {
+                build.setResult(Result.UNSTABLE);
+                log(listener, "[ModelBuilder]"+e.getMessage());
+            }
+        }
+        finally {
             deleteDirectoryTree(tempDir);
         }
         return true;
