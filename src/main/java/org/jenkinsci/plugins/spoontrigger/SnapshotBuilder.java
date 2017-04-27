@@ -241,7 +241,7 @@ public class SnapshotBuilder extends BaseBuilder {
     }
 
     private VagrantEnvironment createVagrantEnvironment(SpoonBuild build, String buildWorkspace) throws IOException {
-        Path workingDir = Files.createTempDirectory(Paths.get("C:/JenkinsTemp"),"jenkins-" + build.getSanitizedProjectName() + "-build-");
+        Path workingDir = Files.createTempDirectory(Paths.get("C:/CI/Temp"),"jenkins-" + build.getSanitizedProjectName() + "-build-");
         VagrantEnvironment.EnvironmentBuilder environmentBuilder = VagrantEnvironment.builder(workingDir)
                 .box(vagrantBox)
                 .xStudioPath(xStudioPath);
