@@ -65,12 +65,10 @@ public class CheckCommand extends FilterOutputCommand {
 
         public CheckCommand build() {
             checkState(image.isPresent(), REQUIRE_PRESENT_S, "image");
-            checkState(screenshotPath.isPresent(), REQUIRE_PRESENT_S, "screenshotPath");
 
             ArgumentListBuilder arguments = new ArgumentListBuilder(SPOON_CLIENT, "check")
                     .add(image.get().printIdentifier())
-                    .add("--screenshot")
-                    .addQuoted(screenshotPath.get());
+                    .add("--enable-screencast");
 
             if (bootstrapDuration.isPresent()) {
                 arguments
