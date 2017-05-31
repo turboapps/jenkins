@@ -2,6 +2,7 @@ package org.jenkinsci.plugins.spoontrigger;
 
 import com.google.common.reflect.TypeToken;
 import hudson.Extension;
+import hudson.FilePath;
 import hudson.Launcher;
 import hudson.Util;
 import hudson.model.AbstractProject;
@@ -19,6 +20,7 @@ import org.jenkinsci.plugins.spoontrigger.validation.Validators;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
+import java.io.File;
 import java.io.IOException;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -32,6 +34,26 @@ public class ImageCheckBuilder extends BaseBuilder {
     private boolean isConsoleApp;
     private boolean hasChildProcesses;
 
+    public String getExitCode() {
+        return exitCode;
+    }
+
+    public String getBootstrapTime() {
+        return bootstrapTime;
+    }
+
+    public String getLaunchTime() {
+        return launchTime;
+    }
+
+    public boolean isConsoleApp() {
+        return isConsoleApp;
+    }
+
+    public boolean isHasChildProcesses() {
+        return hasChildProcesses;
+    }
+
     @DataBoundConstructor
     public ImageCheckBuilder(String exitCode, String bootstrapTime, String launchTime, boolean isConsoleApp, boolean hasChildProcesses) {
         this.exitCode = Util.fixEmptyAndTrim(exitCode);
@@ -43,7 +65,8 @@ public class ImageCheckBuilder extends BaseBuilder {
 
     @Override
     protected boolean perform(SpoonBuild build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
-        ScheduledTasksApi scheduledTasksApi = new ScheduledTasksApi(build.getEnv().get(), build.getWorkspace(), build.getCharset(), launcher, listener, false);
+        FilePath workDir = new FilePath(new File("C:/JenkinsTemp"));
+        ScheduledTasksApi scheduledTasksApi = new ScheduledTasksApi(build.getEnv().get(), workDir, build.getCharset(), launcher, listener, false);
 
         Image outputImage = build.getOutputImage().orNull();
         checkState(outputImage != null, REQUIRE_OUTPUT_IMAGE);
@@ -98,4 +121,5 @@ public class ImageCheckBuilder extends BaseBuilder {
             return "Execute Validation Checks";
         }
     }
+
 }
