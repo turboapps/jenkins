@@ -78,8 +78,8 @@ Try
         $reader.Close()
     }
 
-    Log-Status "Scheduled task '$TaskName' finished"
-
+	$exitCode = (Get-ScheduledTaskInfo -TaskName $TaskName).LastTaskResult
+    Log-Status "Scheduled task '$TaskName' finished with exit code: '$exitCode'"
 
     Remove-Item $logFilePath
 }
