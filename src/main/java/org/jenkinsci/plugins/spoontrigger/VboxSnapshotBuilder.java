@@ -91,21 +91,24 @@ public class VboxSnapshotBuilder extends BaseBuilder {
                 .build();
 
         generateBuildCommand();
-
-        Launcher.ProcStarter procStarter = launcher.new ProcStarter();
-        procStarter = procStarter.cmds(vboxSnapshotCommand).stdout(listener);
-        procStarter = procStarter.pwd(build.getWorkspace()).envs(build.getEnvironment(listener));
-        Proc proc = launcher.launch(procStarter);
-        int buildReturnCode = proc.join();
+        int buildReturnCode = takeVboxSnapshot(build, launcher, listener);
 
         loadImageNameFrom(build);
         build.setOutputImage(image.get());
 
-        importImage(commandDriver, build);
+        importImageToLocalTurbo(commandDriver, build);
 
         listener.getLogger().println("Build returned: " + buildReturnCode);
 
         return true;
+    }
+
+    private int takeVboxSnapshot(SpoonBuild build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
+        Launcher.ProcStarter procStarter = launcher.new ProcStarter();
+        procStarter = procStarter.cmds(vboxSnapshotCommand).stdout(listener);
+        procStarter = procStarter.pwd(build.getWorkspace()).envs(build.getEnvironment(listener));
+        Proc proc = launcher.launch(procStarter);
+        return proc.join();
     }
 
     private String copyResourceToWorkspace(String workspacePath, String fileName) throws IOException {
@@ -179,7 +182,7 @@ public class VboxSnapshotBuilder extends BaseBuilder {
         vboxSnapshotCommand = command.toWindowsCommand();
     }
 
-    private void importImage(CommandDriver commandDriver, SpoonBuild build) {
+    private void importImageToLocalTurbo(CommandDriver commandDriver, SpoonBuild build) {
         ImportCommand.CommandBuilder commandBuilder = ImportCommand.builder()
                 .type("svm")
                 .path(image.get().namespace + "_" + image.get().repo + "_" + image.get().tag + ".svm")
