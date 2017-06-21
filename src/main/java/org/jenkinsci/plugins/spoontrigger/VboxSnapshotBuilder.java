@@ -33,7 +33,6 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Enumeration;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -53,8 +52,8 @@ public class VboxSnapshotBuilder extends BaseBuilder {
     private String configurationXMLPath;
     private String virtualboxDir;
     private ArgumentListBuilder vboxSnapshotCommand;
-    private String PSBuildScriptPath;
     private Optional<Image> image;
+    private String PSBuildScriptPath;
     private Boolean overwriteFlag;
     private String buildScriptPath;
 
@@ -80,8 +79,8 @@ public class VboxSnapshotBuilder extends BaseBuilder {
             e.printStackTrace();
         }
 
-        PSBuildScriptPath = copyResourceToWorkspace(build.getWorkspace().getRemote(), PS_MAIN_SCRIPT_FILENAME, listener);
-        buildScriptPath = copyResourceToWorkspace(build.getWorkspace().getRemote(), BUILD_SCRIPT_FILENAME, listener);
+        PSBuildScriptPath = copyResourceToWorkspace(build.getWorkspace().getRemote(), PS_MAIN_SCRIPT_FILENAME);
+        buildScriptPath = copyResourceToWorkspace(build.getWorkspace().getRemote(), BUILD_SCRIPT_FILENAME);
 
         CommandDriver commandDriver = CommandDriver.builder()
                 .charset(build.getCharset())
@@ -109,9 +108,9 @@ public class VboxSnapshotBuilder extends BaseBuilder {
         return true;
     }
 
-    private String copyResourceToWorkspace(String workspacePath, String fileName, BuildListener listener) throws IOException {
+    private String copyResourceToWorkspace(String workspacePath, String fileName) throws IOException {
         Path resourceOutputPath = Paths.get(workspacePath, fileName);
-        URL resourceId = Resources.getResource(getClass(),getClass().getSimpleName() + "\\" + fileName);
+        URL resourceId = Resources.getResource(getClass(), fileName);
         FileOutputStream fileOutputStream = new FileOutputStream(resourceOutputPath.toFile());
         try {
             Resources.copy(resourceId, fileOutputStream);
@@ -124,8 +123,6 @@ public class VboxSnapshotBuilder extends BaseBuilder {
     }
 
     private void loadConfigurationFromXML(String configurationXMLPath) throws ParserConfigurationException, IOException, SAXException {
-        //TODO import configuration and initialize fields
-
         File configurationXMLFile = new File(configurationXMLPath);
         DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
         DocumentBuilder documentBuilder = documentBuilderFactory.newDocumentBuilder();
@@ -204,7 +201,6 @@ public class VboxSnapshotBuilder extends BaseBuilder {
         private String xStudioPath;
         private String studioLicensePath;
         private String virtualboxDir;
-        private String PSBuildScriptPath;
 
         public Descriptor() {
             super(VboxSnapshotBuilder.class);
@@ -228,7 +224,6 @@ public class VboxSnapshotBuilder extends BaseBuilder {
             xStudioPath = json.getString("xStudioPath");
             studioLicensePath = json.getString("studioLicensePath");
             virtualboxDir = json.getString("virtualboxDir");
-            PSBuildScriptPath = json.getString("PSBuildScriptPath");
 
             save();
             return super.configure(req, json);
@@ -244,10 +239,6 @@ public class VboxSnapshotBuilder extends BaseBuilder {
 
         public String getVirtualboxDir() {
             return virtualboxDir;
-        }
-
-        public String getPSBuildScriptPath() {
-            return PSBuildScriptPath;
         }
     }
 

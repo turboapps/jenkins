@@ -7,9 +7,6 @@
         <f:entry title="Studio License File Path" field="studioLicensePath">
             <f:textbox/>
         </f:entry>
-        <f:entry title="General build scripts directory" field="PSBuildScriptPath">
-            <f:textbox/>
-        </f:entry>
         <f:entry title="Virtualbox installation directory" field="virtualboxDir">
             <f:textbox/>
         </f:entry>
