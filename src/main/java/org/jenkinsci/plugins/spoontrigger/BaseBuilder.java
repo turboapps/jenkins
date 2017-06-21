@@ -11,7 +11,9 @@ import org.jenkinsci.plugins.spoontrigger.commands.turbo.ConfigCommand;
 import org.jenkinsci.plugins.spoontrigger.hub.HubApi;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
 import org.jenkinsci.plugins.spoontrigger.utils.TaskListeners;
+import org.xml.sax.SAXException;
 
+import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 import java.util.Map;
 

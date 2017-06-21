@@ -1,0 +1,6 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:f="/lib/form">
+    <f:entry title="Path to configuration file" field="configurationXMLPath">
+        <f:textbox/>
+    </f:entry>
+</j:jelly>
