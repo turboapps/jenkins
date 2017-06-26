@@ -168,8 +168,9 @@ public class VboxSnapshotBuilder extends BaseBuilder {
 
     private void generateBuildCommand() {
         ArgumentListBuilder command = new ArgumentListBuilder();
-        command.addTokenized("Powershell -File " + PSBuildScriptPath);
-        command.add(buildScriptPath,
+        command.addTokenized("Powershell -File ");
+        command.add(PSBuildScriptPath,
+                buildScriptPath,
                 vmName,
                 snapshotScriptPath,
                 installScriptPath,
