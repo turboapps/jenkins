@@ -9,6 +9,7 @@ import hudson.Launcher;
 import hudson.Proc;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
+import hudson.model.Result;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.ArgumentListBuilder;
@@ -44,7 +45,6 @@ public class VboxSnapshotBuilder extends BaseBuilder {
     private transient String xStudioPath;
     private String studioLicensePath;
     private String vmName;
-    private String snapshotScriptPath;
     private String installScriptPath;
     private String preInstallScriptPath;
     private String postSnapshotScriptPath;
@@ -79,6 +79,10 @@ public class VboxSnapshotBuilder extends BaseBuilder {
             e.printStackTrace();
         }
 
+        loadImageNameFrom(build);
+
+        if (shouldAbort(build, listener)) return false;
+
         PSBuildScriptPath = copyResourceToWorkspace(build.getWorkspace().getRemote(), PS_MAIN_SCRIPT_FILENAME);
         buildScriptPath = copyResourceToWorkspace(build.getWorkspace().getRemote(), BUILD_SCRIPT_FILENAME);
 
@@ -93,7 +97,6 @@ public class VboxSnapshotBuilder extends BaseBuilder {
         generateBuildCommand();
         int buildReturnCode = takeVboxSnapshot(build, launcher, listener);
 
-        loadImageNameFrom(build);
         build.setOutputImage(image.get());
 
         importImageToLocalTurbo(commandDriver, build);
@@ -101,6 +104,20 @@ public class VboxSnapshotBuilder extends BaseBuilder {
         listener.getLogger().println("Build returned: " + buildReturnCode);
 
         return true;
+    }
+
+    private boolean shouldAbort(SpoonBuild build, BuildListener listener) {
+        boolean imageAvailableRemotely = isAvailableRemotely(this.image.get(), build, listener);
+        if(imageAvailableRemotely)
+        {
+            if(!overwriteFlag)
+            {
+                build.setResult(Result.ABORTED);
+                return true;
+            }
+            listener.getLogger().println("Build available remotely, but overwrite flag is 'true'. Building anyway.");
+        }
+        return false;
     }
 
     private int takeVboxSnapshot(SpoonBuild build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
@@ -132,7 +149,6 @@ public class VboxSnapshotBuilder extends BaseBuilder {
         Document document = documentBuilder.parse(configurationXMLFile);
 
         vmName = document.getElementsByTagName("vmName").item(0).getTextContent();
-        snapshotScriptPath = document.getElementsByTagName("snapshotScriptPath").item(0).getTextContent();
         installScriptPath = document.getElementsByTagName("installScriptPath").item(0).getTextContent();
         preInstallScriptPath = document.getElementsByTagName("preInstallScriptPath").item(0).getTextContent();
         postSnapshotScriptPath = document.getElementsByTagName("postSnapshotScriptPath").item(0).getTextContent();
@@ -172,7 +188,6 @@ public class VboxSnapshotBuilder extends BaseBuilder {
         command.add(PSBuildScriptPath,
                 buildScriptPath,
                 vmName,
-                snapshotScriptPath,
                 installScriptPath,
                 xStudioPath,
                 studioLicensePath,
