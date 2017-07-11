@@ -36,6 +36,22 @@ If ($postSnapshotScript -eq " ") { $postSnapshotScript = "" }
 If ($mountDir -eq " ") { $mountDir = "" }
 If ($virtualboxDir -eq " ") { $virtualboxDir = "" }
 
+#Clean workspace
+if(Test-Path ".\share") { Remove-Item ".\share" -Recurse -Force }
+Remove-Item "*.svm"
+
+New-Item ".\share" -type directory
+New-Item ".\share\install" -type directory
+New-Item ".\share\tools" -type directory
+New-Item ".\share\output" -type directory
+
+#Copy install files to share directory
+if(Test-Path ".\installFiles")
+{
+  Copy-Item ".\installFiles\*" ".\share\install" -Recurse
+  Remove-Item ".\installFiles" -Recurse -Force
+}
+
 #Force allows to overwrite
 Copy-Item "$studioPath" ".\share\tools\xstudio.exe"
 Copy-Item "$studioLicensePath" ".\share\tools\license.txt"
@@ -71,11 +87,11 @@ while (!(Test-Path ".\share\buildDone"))
 & "$virtualboxDir\VBoxManage.exe" snapshot $machine restore "turboBuild"
 
 Copy-Item ".\share\output\image.svm" ".\$($imageNamespace)_$($imageAppName)_$($imageVersion).svm"
-Copy-Item ".\share\output\buildlog.txt" ".\buildlog_$($imageNamespace)_$($imageAppName)_$($imageVersion).txt"
+Copy-Item ".\share\output\buildlog.txt" ".\buildlog_$($imageNamespace)_$($imageAppName)_$($imageVersion).log"
 
 Remove-Item ".\share" -Recurse
-Remove-Item ".\image.txt"
+Remove-Item ".\*.txt"
 
-Get-Content ".\buildlog_$($imageNamespace)_$($imageAppName)_$($imageVersion).txt"
+Get-Content ".\buildlog_$($imageNamespace)_$($imageAppName)_$($imageVersion).log"
 
 Exit 1
