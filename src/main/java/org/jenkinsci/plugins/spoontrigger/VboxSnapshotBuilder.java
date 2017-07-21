@@ -24,15 +24,13 @@ import org.xml.sax.SAXException;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -41,6 +39,7 @@ public class VboxSnapshotBuilder extends BaseBuilder {
     private static final String IMAGE_NAME_FILE = "image.txt";
     private static final String BUILD_SCRIPT_FILENAME = "buildScript.ps1";
     private static final String PS_MAIN_SCRIPT_FILENAME = "completeBuildProcedure.ps1";
+    private static final String LOCAL_OVERWRITE = "OVERWRITE";
     private transient String xStudioPath;
     private String studioLicensePath;
     private String vmName;
@@ -55,6 +54,7 @@ public class VboxSnapshotBuilder extends BaseBuilder {
     private Optional<Image> image;
     private String PSBuildScriptPath;
     private Boolean overwriteFlag;
+    private Boolean localOverwrite;
     private String buildScriptPath;
 
 
@@ -74,11 +74,21 @@ public class VboxSnapshotBuilder extends BaseBuilder {
     @Override
     protected boolean perform(SpoonBuild build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
         try {
-            loadConfigurationFromXML(configurationXMLPath);
+            Document configurationFileDocument = openXMLConfigurationPath(configurationXMLPath);
+            loadConfigurationFromXML(configurationFileDocument);
+
         } catch (ParserConfigurationException | SAXException e) {
             e.printStackTrace();
         }
 
+<<<<<<< Updated upstream
+=======
+        loadImageNameFrom(build);
+        loadOneTimeOverwriteFromEvn(build);
+
+        if (shouldAbort(build, listener, launcher)) return false;
+
+>>>>>>> Stashed changes
         PSBuildScriptPath = copyResourceToWorkspace(build.getWorkspace().getRemote(), PS_MAIN_SCRIPT_FILENAME);
         buildScriptPath = copyResourceToWorkspace(build.getWorkspace().getRemote(), BUILD_SCRIPT_FILENAME);
 
@@ -103,9 +113,67 @@ public class VboxSnapshotBuilder extends BaseBuilder {
         return true;
     }
 
+<<<<<<< Updated upstream
+=======
+    private Boolean isAvailableLocaly(SpoonBuild build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
+        ArgumentListBuilder imageQueryCommand = new ArgumentListBuilder();
+        imageQueryCommand.addTokenized("turbo images --format=json");
+        ByteArrayOutputStream imageQueryOutputStream = new ByteArrayOutputStream();
+
+        runCmdCommand(build, launcher, listener, imageQueryCommand, imageQueryOutputStream);
+
+        String imageQueryResult = imageQueryOutputStream.toString();
+        String imageName = image.get().printIdentifier();
+
+        if (imageQueryResult.contains(imageName))
+        {
+            listener.getLogger().println(imageName + " available localy");
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    private void loadOneTimeOverwriteFromEvn(SpoonBuild build) {
+        Map<String, String> environmentVariables = build.getEnv().get();
+        String overwriteEnv = environmentVariables.get(LOCAL_OVERWRITE);
+        localOverwrite = Boolean.parseBoolean(overwriteEnv);
+    }
+
+    private boolean shouldAbort(SpoonBuild build, BuildListener listener, Launcher launcher) throws IOException, InterruptedException {
+        boolean imageAvailableRemotely = isAvailableRemotely(this.image.get(), build, listener);
+        boolean imageAvailableLocaly = isAvailableLocaly(build, launcher, listener);
+        if(imageAvailableRemotely)
+        {
+            if(!overwriteFlag)
+            {
+                build.setResult(Result.ABORTED);
+                return true;
+            }
+            listener.getLogger().println("Image available remotely, but overwrite flag is 'true'. Building anyway.");
+        }
+        if(imageAvailableLocaly)
+        {
+            if(!localOverwrite)
+            {
+                build.setResult(Result.ABORTED);
+                return true;
+            }
+            listener.getLogger().println("Image available localy, but localOverwrite flag is 'true'. Building anyway.");
+        }
+        return false;
+    }
+
+>>>>>>> Stashed changes
     private int takeVboxSnapshot(SpoonBuild build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
+        return runCmdCommand(build, launcher, listener, vboxSnapshotCommand, listener.getLogger());
+    }
+
+    private static int runCmdCommand(SpoonBuild build, Launcher launcher, BuildListener listener, ArgumentListBuilder argumentList, OutputStream outputStream) throws IOException, InterruptedException {
         Launcher.ProcStarter procStarter = launcher.new ProcStarter();
-        procStarter = procStarter.cmds(vboxSnapshotCommand).stdout(listener);
+        procStarter = procStarter.cmds(argumentList).stdout(outputStream);
         procStarter = procStarter.pwd(build.getWorkspace()).envs(build.getEnvironment(listener));
         Proc proc = launcher.launch(procStarter);
         return proc.join();
@@ -125,10 +193,22 @@ public class VboxSnapshotBuilder extends BaseBuilder {
         return resourceOutputPath.toString();
     }
 
-    private void loadConfigurationFromXML(String configurationXMLPath) throws ParserConfigurationException, IOException, SAXException {
+    private void loadConfigurationFromXML(Document configurationFileDocument) throws ParserConfigurationException, IOException, SAXException {
+        vmName = configurationFileDocument.getElementsByTagName("vmName").item(0).getTextContent();
+        installScriptPath = configurationFileDocument.getElementsByTagName("installScriptPath").item(0).getTextContent();
+        preInstallScriptPath = configurationFileDocument.getElementsByTagName("preInstallScriptPath").item(0).getTextContent();
+        postSnapshotScriptPath = configurationFileDocument.getElementsByTagName("postSnapshotScriptPath").item(0).getTextContent();
+        mountDirectoryPath = configurationFileDocument.getElementsByTagName("mountDirectoryPath").item(0).getTextContent();
+        overwriteFlag = Boolean.parseBoolean(configurationFileDocument.getElementsByTagName("overwrite").item(0).getTextContent());
+
+        replaceEmptyArgument();
+    }
+
+    private Document openXMLConfigurationPath(String configurationXMLPath) throws ParserConfigurationException, SAXException, IOException {
         File configurationXMLFile = new File(configurationXMLPath);
         DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
         DocumentBuilder documentBuilder = documentBuilderFactory.newDocumentBuilder();
+<<<<<<< Updated upstream
         Document document = documentBuilder.parse(configurationXMLFile);
 
         vmName = document.getElementsByTagName("vmName").item(0).getTextContent();
@@ -140,6 +220,9 @@ public class VboxSnapshotBuilder extends BaseBuilder {
         overwriteFlag = Boolean.parseBoolean(document.getElementsByTagName("overwrite").item(0).getTextContent());
 
         replaceEmptyArgument();
+=======
+        return documentBuilder.parse(configurationXMLFile);
+>>>>>>> Stashed changes
     }
 
     private void loadImageNameFrom (SpoonBuild build) throws IOException {
