@@ -9,6 +9,7 @@ import hudson.Launcher;
 import hudson.Proc;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
+import hudson.model.Result;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.ArgumentListBuilder;
@@ -80,15 +81,11 @@ public class VboxSnapshotBuilder extends BaseBuilder {
         } catch (ParserConfigurationException | SAXException e) {
             e.printStackTrace();
         }
-
-<<<<<<< Updated upstream
-=======
         loadImageNameFrom(build);
         loadOneTimeOverwriteFromEvn(build);
 
         if (shouldAbort(build, listener, launcher)) return false;
 
->>>>>>> Stashed changes
         PSBuildScriptPath = copyResourceToWorkspace(build.getWorkspace().getRemote(), PS_MAIN_SCRIPT_FILENAME);
         buildScriptPath = copyResourceToWorkspace(build.getWorkspace().getRemote(), BUILD_SCRIPT_FILENAME);
 
@@ -113,8 +110,6 @@ public class VboxSnapshotBuilder extends BaseBuilder {
         return true;
     }
 
-<<<<<<< Updated upstream
-=======
     private Boolean isAvailableLocaly(SpoonBuild build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
         ArgumentListBuilder imageQueryCommand = new ArgumentListBuilder();
         imageQueryCommand.addTokenized("turbo images --format=json");
@@ -166,7 +161,6 @@ public class VboxSnapshotBuilder extends BaseBuilder {
         return false;
     }
 
->>>>>>> Stashed changes
     private int takeVboxSnapshot(SpoonBuild build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
         return runCmdCommand(build, launcher, listener, vboxSnapshotCommand, listener.getLogger());
     }
@@ -208,21 +202,7 @@ public class VboxSnapshotBuilder extends BaseBuilder {
         File configurationXMLFile = new File(configurationXMLPath);
         DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
         DocumentBuilder documentBuilder = documentBuilderFactory.newDocumentBuilder();
-<<<<<<< Updated upstream
-        Document document = documentBuilder.parse(configurationXMLFile);
-
-        vmName = document.getElementsByTagName("vmName").item(0).getTextContent();
-        snapshotScriptPath = document.getElementsByTagName("snapshotScriptPath").item(0).getTextContent();
-        installScriptPath = document.getElementsByTagName("installScriptPath").item(0).getTextContent();
-        preInstallScriptPath = document.getElementsByTagName("preInstallScriptPath").item(0).getTextContent();
-        postSnapshotScriptPath = document.getElementsByTagName("postSnapshotScriptPath").item(0).getTextContent();
-        mountDirectoryPath = document.getElementsByTagName("mountDirectoryPath").item(0).getTextContent();
-        overwriteFlag = Boolean.parseBoolean(document.getElementsByTagName("overwrite").item(0).getTextContent());
-
-        replaceEmptyArgument();
-=======
         return documentBuilder.parse(configurationXMLFile);
->>>>>>> Stashed changes
     }
 
     private void loadImageNameFrom (SpoonBuild build) throws IOException {
