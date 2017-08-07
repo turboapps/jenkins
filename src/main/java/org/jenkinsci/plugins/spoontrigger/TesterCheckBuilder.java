@@ -1,5 +1,8 @@
 package org.jenkinsci.plugins.spoontrigger;
 
+import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
+import com.google.common.base.Optional;
+import com.google.common.base.Strings;
 import com.google.common.reflect.TypeToken;
 import hudson.Extension;
 import hudson.Launcher;
@@ -11,9 +14,14 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.ArgumentListBuilder;
 import hudson.util.ListBoxModel;
+import hudson.util.Secret;
+import jcifs.smb.NtlmPasswordAuthentication;
+import jcifs.smb.SmbException;
+import jcifs.smb.SmbFile;
+import jcifs.smb.SmbFileInputStream;
 import net.sf.json.JSONObject;
-import org.apache.commons.io.IOUtils;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
+import org.jenkinsci.plugins.spoontrigger.utils.Credentials;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
@@ -22,27 +30,27 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 
+import static com.google.common.base.Preconditions.checkState;
 import static org.jenkinsci.plugins.spoontrigger.utils.Credentials.fillCredentialsIdItems;
 
 public class TesterCheckBuilder extends BaseBuilder {
 
     private static final String  CHECK_APP_URL = "/buildByToken/buildWithParameters?job=Check%20App&token=checkapp";
     private static final int JOB_TRIGGER_HTTP_RESPONSE_CODE = 201;
-    //    public static final String  CHECK_APP_URL = "/job/Check%20App/buildWithParameters?delay=0sec";
+    private static final String TRIGGER_PARAMETER_VM = "&VmMachines=";
+    private static final String TRIGGER_PARAMETER_APP = "&app=";
+    private static final String TRIGGER_PARAMETER_HUB = "&hub=";
 
-    private int expectedExitCode;
-    private String testVms;
-    private String turboTesterServer;
-    private String hubURL;
     private Image imageToCheck;
+    private int expectedExitCode;
+    private String hubURL;
+    private String turboTesterServer;
+    private String testVms;
+    private Optional<StandardUsernamePasswordCredentials> credentials;
+
     private URL testerRequestURL;
     private int maxMinutesToWaitForResult;
     private SpoonBuild build;
@@ -52,10 +60,10 @@ public class TesterCheckBuilder extends BaseBuilder {
 
     @DataBoundConstructor
     public TesterCheckBuilder(int expectedExitCode, String testVms, String maxMinutesToWaitForResult, String credentialsId) {
-        this.expectedExitCode = expectedExitCode;
         this.testVms = testVms;
-        this.maxMinutesToWaitForResult = Integer.parseInt(maxMinutesToWaitForResult);
+        this.expectedExitCode = expectedExitCode;
         this.credentialsId = credentialsId;
+        this.maxMinutesToWaitForResult = Integer.parseInt(maxMinutesToWaitForResult);
     }
 
     @Override
@@ -63,6 +71,10 @@ public class TesterCheckBuilder extends BaseBuilder {
         Descriptor globalConfig = (Descriptor)getDescriptor();
         turboTesterServer = globalConfig.getTurboTesterServer();
         hubURL = globalConfig.getHubUrl();
+        Optional<StandardUsernamePasswordCredentials> credentials = this.getCredentials();
+        if (credentials.isPresent()) {
+            build.setCredentials(credentials.get());
+        }
     }
 
     @Override
@@ -70,6 +82,7 @@ public class TesterCheckBuilder extends BaseBuilder {
         this.build = build;
         this.launcher = launcher;
         this.listener = listener;
+        this.credentials = build.getCredentials();
 
         getImageToCheck();
 
@@ -81,21 +94,8 @@ public class TesterCheckBuilder extends BaseBuilder {
         return true;
     }
 
-    private void waitForAndReadResultFiles(List<String> testVMsList) throws InterruptedException, IOException {
-        String dashedImageName = imageToCheck.namespace + "-" + imageToCheck.repo + "-" + imageToCheck.tag;
-        for (String testVm : testVMsList)
-        {
-            String exitcodeFilePath = getUNCexitcodeFilePath(testVm, dashedImageName);
-            waitForExitcodeFile(exitcodeFilePath);
-            BufferedReader bufferedReader = new BufferedReader(new FileReader(exitcodeFilePath));
-            int result  = Integer.parseInt(bufferedReader.readLine());
-            String testResultMessage = "Test on machine " + testVm + " returned: " + result;
-            if (result != expectedExitCode)
-            {
-                throw new IllegalStateException(testResultMessage);
-            }
-            listener.getLogger().println(testResultMessage);
-        }
+    private void getImageToCheck() {
+        imageToCheck = build.getOutputImage().orNull();
     }
 
     private void triggerJenkinsJobAndCheckHTTPResponse() throws IOException {
@@ -107,14 +107,79 @@ public class TesterCheckBuilder extends BaseBuilder {
         listener.getLogger().println("HTTP response code from tester server is: " + response);
     }
 
+    private HttpURLConnection prepareTesterServerConnection() throws IOException {
+        String fullImageName = imageToCheck.printIdentifier();
+        testVms = testVms.replaceAll(" ","");
+        generateTurboTesterURL(fullImageName);
+        listener.getLogger().println("Tester server trigger URL: " + testerRequestURL);
+        HttpURLConnection connection = (HttpURLConnection) testerRequestURL.openConnection();
+        connection.setRequestMethod("GET");
+        return connection;
+    }
+
+    private void generateTurboTesterURL(String fullImageName) throws MalformedURLException {
+        testerRequestURL = new URL("http://" +
+                turboTesterServer +
+                CHECK_APP_URL+
+                TRIGGER_PARAMETER_VM +
+                testVms +
+                TRIGGER_PARAMETER_APP +
+                fullImageName +
+                TRIGGER_PARAMETER_HUB +
+                hubURL);
+    }
+
+    private void waitForAndReadResultFiles(List<String> testVMsList) throws InterruptedException, IOException {
+        String dashedImageName = imageToCheck.namespace + "-" + imageToCheck.repo + "-" + imageToCheck.tag;
+        NtlmPasswordAuthentication auth = new NtlmPasswordAuthentication("CODE",
+                                                                        credentials.get().getUsername(),
+                                                                        Secret.toString(credentials.get().getPassword()));
+        for (String testVm : testVMsList)
+        {
+            String exitcodeFilePath = getSMBexitcodeFilePath(testVm, dashedImageName);
+            SmbFile exitcodeFile = new SmbFile(exitcodeFilePath, auth);
+            waitForExitcodeFile(exitcodeFile);
+            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new SmbFileInputStream(exitcodeFile)));
+            int result  = Integer.parseInt(bufferedReader.readLine());
+            String testResultMessage = "Test on machine " + testVm + " returned: " + result;
+            if (result != expectedExitCode)
+            {
+                throw new IllegalStateException(testResultMessage);
+            }
+            listener.getLogger().println(testResultMessage);
+        }
+    }
+
+    private String getSMBexitcodeFilePath(String testVm, String dashedImageName) {
+        return "smb://" + getTurboTesterNameWithoutPort()
+                + "/" + "Results/CheckApp"
+                + "/" + dashedImageName
+                + "-" + testVm + "-"
+                + "exitcode.txt";
+    }
+
+    private String getTurboTesterNameWithoutPort() {
+        return (turboTesterServer.split(":"))[0];
+    }
+
+    private void waitForExitcodeFile(SmbFile smbFile) throws InterruptedException, SmbException {
+        int waitCounter = 0;
+        //We wait for checkapp job to delete previous exitcode file.
+        Thread.sleep(2000);
+        while (!smbFile.exists() && waitCounter < maxMinutesToWaitForResult*6)
+        {
+            Thread.sleep(10000);
+            waitCounter++;
+        }
+        if (!smbFile.exists())
+        {
+            throw new IllegalStateException("Result file " + smbFile.getCanonicalPath() + "not found after wait time passed.");
+        }
+    }
+
     private void deleteRepoFromLocalServer() throws IOException, InterruptedException {
         checkTurboConfig();
         executeRepoDelete();
-    }
-
-    private void executeRepoDelete() {
-        //todo write deleting the repo.
-        listener.getLogger().println("Lalala! Nuking repo!");
     }
 
     private void checkTurboConfig() throws IOException, InterruptedException {
@@ -137,77 +202,9 @@ public class TesterCheckBuilder extends BaseBuilder {
         return proc.join();
     }
 
-    private String getUNCexitcodeFilePath(String testVm, String dashedImageName) {
-        return "//" + getTurboTesterNameWithoutPort()
-                    + "/" + "Results/CheckApp"
-                    + "/" + dashedImageName
-                    + "-" + testVm + "-"
-                    + "exitcode.txt";
-    }
-
-    private String getTurboTesterNameWithoutPort() {
-        return (turboTesterServer.split(":"))[0];
-    }
-
-    private void waitForExitcodeFile(String filePath) throws InterruptedException {
-        Path path = Paths.get(filePath);
-        int waitCounter = 0;
-        //We wait for checkapp job to delete previous exitcode file.
-        Thread.sleep(2000);
-        while (Files.notExists(path) && waitCounter < maxMinutesToWaitForResult*6)
-        {
-            Thread.sleep(10000);
-            waitCounter++;
-        }
-        if (Files.notExists(path))
-        {
-            throw new IllegalStateException("Result file " + filePath + "not found after wait time passed.");
-        }
-    }
-
-    private void getImageToCheck() {
-        imageToCheck = build.getOutputImage().orNull();
-    }
-
-    private HttpURLConnection prepareTesterServerConnection() throws IOException {
-        String fullImageName = imageToCheck.printIdentifier();
-        testVms = testVms.replaceAll(" ","");
-        generateTurboTesterURL(fullImageName);
-        HttpURLConnection connection = (HttpURLConnection) testerRequestURL.openConnection();
-        connection.setRequestMethod("GET");
-        return connection;
-    }
-
-    private int getTriggeredJobNumber(HttpURLConnection connection) throws IOException, InterruptedException {
-        Map<String, List<String>> headerFields =  connection.getHeaderFields();
-        String queueUrlForApi = headerFields.get("Location").get(0);
-        return waitGetJobNumberFromJson(queueUrlForApi);
-    }
-
-    private int waitGetJobNumberFromJson(String queueUrlForApi) throws IOException, InterruptedException {
-        int waitCounter = 0; //5 minutes
-        JSONObject json = JSONObject.fromObject(IOUtils.toString(new URL(queueUrlForApi + "api/json")));
-        String jsonWhy = json.getString("why");
-        while (!Objects.equals(jsonWhy, "null") && (waitCounter < 600))
-        {
-            Thread.sleep(500);
-            json = JSONObject.fromObject(IOUtils.toString(new URL(queueUrlForApi + "api/json")));
-            jsonWhy = json.getString("why");
-            waitCounter++;
-        }
-        return json.getJSONObject("executable").getInt("number");
-    }
-
-    private void generateTurboTesterURL(String fullImageName) throws MalformedURLException {
-        testerRequestURL = new URL("http://" +
-                                    turboTesterServer +
-                                    CHECK_APP_URL+
-                                    "&vms=" +
-                                    testVms +
-                                    "&app=" +
-                                    fullImageName +
-                                    "&hub=" +
-                                    hubURL);
+    private void executeRepoDelete() {
+        //todo write deleting the repo.
+        listener.getLogger().println("Lalala! Nuking repo!");
     }
 
     public int getExpectedExitCode() {
@@ -220,6 +217,18 @@ public class TesterCheckBuilder extends BaseBuilder {
 
     public int getMaxMinutesToWaitForResult() {
         return maxMinutesToWaitForResult;
+    }
+
+    private Optional<StandardUsernamePasswordCredentials> getCredentials() throws IllegalStateException {
+        if (Strings.isNullOrEmpty(this.credentialsId)) {
+            return Optional.absent();
+        }
+
+        Optional<StandardUsernamePasswordCredentials> credentials = Credentials.lookupById(StandardUsernamePasswordCredentials.class, this.credentialsId);
+
+        checkState(credentials.isPresent(), "Cannot find any credentials with id (%s)", this.credentialsId);
+
+        return credentials;
     }
 
     @Extension
