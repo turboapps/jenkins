@@ -13,7 +13,7 @@
 
     <groupId>org.jenkinsci.plugins.spoonscript</groupId>
     <artifactId>spoonscript</artifactId>
-    <version>1.2-SNAPSHOT_mrv</version>
+    <version>1.2-SNAPSHOT_mrv_d</version>
     <packaging>hpi</packaging>
 
     <name>TurboScript Plugin</name>

@@ -100,7 +100,6 @@ public class VboxSnapshotBuilder extends BaseBuilder {
         generateBuildCommand();
         int buildReturnCode = takeVboxSnapshot(build, launcher, listener);
 
-        loadImageNameFrom(build);
         build.setOutputImage(image.get());
 
         importImageToLocalTurbo(commandDriver, build);
