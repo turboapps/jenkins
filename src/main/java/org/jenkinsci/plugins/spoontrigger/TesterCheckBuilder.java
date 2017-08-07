@@ -3,20 +3,22 @@ package org.jenkinsci.plugins.spoontrigger;
 import com.google.common.reflect.TypeToken;
 import hudson.Extension;
 import hudson.Launcher;
+import hudson.Proc;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
+import hudson.model.Item;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
+import hudson.util.ArgumentListBuilder;
+import hudson.util.ListBoxModel;
 import net.sf.json.JSONObject;
 import org.apache.commons.io.IOUtils;
 import org.jenkinsci.plugins.spoontrigger.hub.Image;
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -26,14 +28,15 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
+import static org.jenkinsci.plugins.spoontrigger.utils.Credentials.fillCredentialsIdItems;
 
-/**
- * Created by turbo1 on 14.07.2017.
- */
 public class TesterCheckBuilder extends BaseBuilder {
 
-    public static final String  CHECK_APP_URL = "/buildByToken/buildWithParameters?job=Check%20App&token=checkapp";
+    private static final String  CHECK_APP_URL = "/buildByToken/buildWithParameters?job=Check%20App&token=checkapp";
+    private static final int JOB_TRIGGER_HTTP_RESPONSE_CODE = 201;
+    //    public static final String  CHECK_APP_URL = "/job/Check%20App/buildWithParameters?delay=0sec";
 
     private int expectedExitCode;
     private String testVms;
@@ -42,15 +45,17 @@ public class TesterCheckBuilder extends BaseBuilder {
     private Image imageToCheck;
     private URL testerRequestURL;
     private int maxMinutesToWaitForResult;
-    private int resultsInitialCount;
-    private String resultDirPath;
-    private int vmCount;
+    private SpoonBuild build;
+    private Launcher launcher;
+    private BuildListener listener;
+    private final String credentialsId;
 
     @DataBoundConstructor
-    public TesterCheckBuilder(int expectedExitCode, String testVms, String maxMinutesToWaitForResult) {
+    public TesterCheckBuilder(int expectedExitCode, String testVms, String maxMinutesToWaitForResult, String credentialsId) {
         this.expectedExitCode = expectedExitCode;
         this.testVms = testVms;
         this.maxMinutesToWaitForResult = Integer.parseInt(maxMinutesToWaitForResult);
+        this.credentialsId = credentialsId;
     }
 
     @Override
@@ -62,83 +67,106 @@ public class TesterCheckBuilder extends BaseBuilder {
 
     @Override
     protected boolean perform(SpoonBuild build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
-        getImageToCheck(build);
-//        resultDirPath = "//" + getTurboTesterNameWithoutPort() + "/Results/CheckApp/";
-        resultDirPath = "//s43.code.net/Results/CheckApp/";
-        getResultsInitialCount();
+        this.build = build;
+        this.launcher = launcher;
+        this.listener = listener;
 
-        HttpURLConnection connection = prepareTesterServerConnection();
-        int response = connection.getResponseCode();
-        if (checkHTTPResponseCode(response))
-            throw new IllegalStateException("Tester server didn't accept the request and returned code " + response);
-        listener.getLogger().println("HTTP response code from tester server is: " + response);
-//        int triggeredJobNumber = getTriggeredJobNumber(connection);
-int triggeredJobNumber = 25;
+        getImageToCheck();
+
+        triggerJenkinsJobAndCheckHTTPResponse();
+
         List<String> testVMsList = Arrays.asList(testVms.split("\\s*,\\s*"));
-        vmCount = testVMsList.size();
+        waitForAndReadResultFiles(testVMsList);
+        deleteRepoFromLocalServer();
+        return true;
+    }
+
+    private void waitForAndReadResultFiles(List<String> testVMsList) throws InterruptedException, IOException {
+        String dashedImageName = imageToCheck.namespace + "-" + imageToCheck.repo + "-" + imageToCheck.tag;
         for (String testVm : testVMsList)
         {
-            String dashedImageName = imageToCheck.namespace + "-" + imageToCheck.repo + "-" + imageToCheck.tag;
-            String resultFileUrl = getUNCResultFileUrl(triggeredJobNumber, testVm, dashedImageName);
-            waitForExitCodeFile(resultFileUrl);
-            BufferedReader bufferedReader = new BufferedReader(new FileReader(resultFileUrl));
+            String exitcodeFilePath = getUNCexitcodeFilePath(testVm, dashedImageName);
+            waitForExitcodeFile(exitcodeFilePath);
+            BufferedReader bufferedReader = new BufferedReader(new FileReader(exitcodeFilePath));
             int result  = Integer.parseInt(bufferedReader.readLine());
-            String testResultMessage = "Test on machine " + testVm + " returned " + result;
+            String testResultMessage = "Test on machine " + testVm + " returned: " + result;
             if (result != expectedExitCode)
             {
                 throw new IllegalStateException(testResultMessage);
             }
             listener.getLogger().println(testResultMessage);
-
         }
-        return true;
     }
 
-    private boolean areResultsReady() {
-        return getNewResultsNumber() >= vmCount;
+    private void triggerJenkinsJobAndCheckHTTPResponse() throws IOException {
+        HttpURLConnection connection = prepareTesterServerConnection();
+        int response = connection.getResponseCode();
+        if (JOB_TRIGGER_HTTP_RESPONSE_CODE != response) {
+            throw new IllegalStateException("Tester server didn't accept the request and returned code " + response);
+        }
+        listener.getLogger().println("HTTP response code from tester server is: " + response);
     }
 
-    private int getNewResultsNumber () {
-        return new File(resultDirPath).list().length - resultsInitialCount;
+    private void deleteRepoFromLocalServer() throws IOException, InterruptedException {
+        checkTurboConfig();
+        executeRepoDelete();
     }
 
-    private void getResultsInitialCount () {
-        resultsInitialCount = new File(resultDirPath).list().length;
+    private void executeRepoDelete() {
+        //todo write deleting the repo.
+        listener.getLogger().println("Lalala! Nuking repo!");
     }
 
-    private boolean checkHTTPResponseCode(int response) {
-        boolean compareResult = response != 201;
-        return (compareResult);
+    private void checkTurboConfig() throws IOException, InterruptedException {
+        ArgumentListBuilder command = new ArgumentListBuilder();
+        command.addTokenized("turbo config");
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        runCmdCommand(build, launcher, listener, command, outputStream);
+        String turboConfigOutput = outputStream.toString();
+        if (!turboConfigOutput.contains("s33"))
+        {
+            throw new IllegalStateException("turbo not connected to s33 hub!");
+        }
     }
 
-    private String getUNCResultFileUrl(int triggeredJobNumber, String testVm, String dashedImageName) {
+    private static int runCmdCommand(SpoonBuild build, Launcher launcher, BuildListener listener, ArgumentListBuilder argumentList, OutputStream outputStream) throws IOException, InterruptedException {
+        Launcher.ProcStarter procStarter = launcher.new ProcStarter();
+        procStarter = procStarter.cmds(argumentList).stdout(outputStream);
+        procStarter = procStarter.pwd(build.getWorkspace()).envs(build.getEnvironment(listener));
+        Proc proc = launcher.launch(procStarter);
+        return proc.join();
+    }
+
+    private String getUNCexitcodeFilePath(String testVm, String dashedImageName) {
         return "//" + getTurboTesterNameWithoutPort()
-                    + "/Results/CheckApp/"
-                    + dashedImageName
+                    + "/" + "Results/CheckApp"
+                    + "/" + dashedImageName
                     + "-" + testVm + "-"
-                    + triggeredJobNumber
-                    + "/exitcode.txt";
+                    + "exitcode.txt";
     }
 
     private String getTurboTesterNameWithoutPort() {
         return (turboTesterServer.split(":"))[0];
     }
 
-    private void waitForExitCodeFile(String filePath) throws InterruptedException {
+    private void waitForExitcodeFile(String filePath) throws InterruptedException {
         Path path = Paths.get(filePath);
         int waitCounter = 0;
-        while (areResultsReady() && waitCounter < maxMinutesToWaitForResult)
+        //We wait for checkapp job to delete previous exitcode file.
+        Thread.sleep(2000);
+        while (Files.notExists(path) && waitCounter < maxMinutesToWaitForResult*6)
         {
             Thread.sleep(10000);
             waitCounter++;
         }
-
+        if (Files.notExists(path))
+        {
+            throw new IllegalStateException("Result file " + filePath + "not found after wait time passed.");
+        }
     }
 
-    private void getImageToCheck(SpoonBuild build) {
+    private void getImageToCheck() {
         imageToCheck = build.getOutputImage().orNull();
-
-        imageToCheck = new Image("mroova","sampleapp","17.07.14");
     }
 
     private HttpURLConnection prepareTesterServerConnection() throws IOException {
@@ -153,15 +181,14 @@ int triggeredJobNumber = 25;
     private int getTriggeredJobNumber(HttpURLConnection connection) throws IOException, InterruptedException {
         Map<String, List<String>> headerFields =  connection.getHeaderFields();
         String queueUrlForApi = headerFields.get("Location").get(0);
-        int jobNumber = waitGetJobNumberFromJson(queueUrlForApi);
-        return jobNumber;
+        return waitGetJobNumberFromJson(queueUrlForApi);
     }
 
     private int waitGetJobNumberFromJson(String queueUrlForApi) throws IOException, InterruptedException {
         int waitCounter = 0; //5 minutes
         JSONObject json = JSONObject.fromObject(IOUtils.toString(new URL(queueUrlForApi + "api/json")));
         String jsonWhy = json.getString("why");
-        while (jsonWhy != "null" && (waitCounter < 600))
+        while (!Objects.equals(jsonWhy, "null") && (waitCounter < 600))
         {
             Thread.sleep(500);
             json = JSONObject.fromObject(IOUtils.toString(new URL(queueUrlForApi + "api/json")));
@@ -234,6 +261,10 @@ int triggeredJobNumber = 25;
 
         public String getHubUrl() {
             return hubUrl;
+        }
+
+        public ListBoxModel doFillCredentialsIdItems(@AncestorInPath Item project) {
+            return fillCredentialsIdItems(project);
         }
     }
 }
