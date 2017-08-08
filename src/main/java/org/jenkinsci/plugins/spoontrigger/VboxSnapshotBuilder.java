@@ -81,6 +81,7 @@ public class VboxSnapshotBuilder extends BaseBuilder {
         } catch (ParserConfigurationException | SAXException e) {
             e.printStackTrace();
         }
+        build.allowOverwrite = overwriteFlag;
         loadImageNameFrom(build);
         loadOneTimeOverwriteFromEvn(build);
 
@@ -150,7 +151,7 @@ public class VboxSnapshotBuilder extends BaseBuilder {
         }
         if(imageAvailableLocaly)
         {
-            if(!localOverwrite)
+            if(!overwriteFlag)
             {
                 build.setResult(Result.ABORTED);
                 return true;

@@ -71,10 +71,7 @@ public class TesterCheckBuilder extends BaseBuilder {
         Descriptor globalConfig = (Descriptor)getDescriptor();
         turboTesterServer = globalConfig.getTurboTesterServer();
         hubURL = globalConfig.getHubUrl();
-        Optional<StandardUsernamePasswordCredentials> credentials = this.getCredentials();
-        if (credentials.isPresent()) {
-            build.setCredentials(credentials.get());
-        }
+        credentials = this.getCredentials();
     }
 
     @Override
@@ -82,7 +79,6 @@ public class TesterCheckBuilder extends BaseBuilder {
         this.build = build;
         this.launcher = launcher;
         this.listener = listener;
-        this.credentials = build.getCredentials();
 
         getImageToCheck();
 
@@ -217,6 +213,10 @@ public class TesterCheckBuilder extends BaseBuilder {
 
     public int getMaxMinutesToWaitForResult() {
         return maxMinutesToWaitForResult;
+    }
+
+    public String getCredentialsId() {
+        return credentialsId;
     }
 
     private Optional<StandardUsernamePasswordCredentials> getCredentials() throws IllegalStateException {
