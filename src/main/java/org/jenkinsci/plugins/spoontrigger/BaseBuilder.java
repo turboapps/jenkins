@@ -61,6 +61,10 @@ public abstract class BaseBuilder extends Builder {
     protected abstract boolean perform(SpoonBuild build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException;
 
     protected boolean isAvailableRemotely(Image remoteImage, SpoonBuild build, BuildListener listener) {
+        return isAvailableRemotely(remoteImage,build,listener,hubUrl);
+    }
+
+    protected boolean isAvailableRemotely(Image remoteImage, SpoonBuild build, BuildListener listener, String hubUrlToCheck) {
         if (remoteImage.namespace == null) {
             String msg = "Check if image " + remoteImage.printIdentifier() + " is available remotely is skipped," +
                     " because the image name does not specify namespace and it can't be extracted" +
@@ -71,11 +75,11 @@ public abstract class BaseBuilder extends Builder {
         }
 
         try {
-            HubApi hubApi = HubApi.create(build, listener, hubUrl);
+            HubApi hubApi = HubApi.create(build, listener, hubUrlToCheck);
             boolean result = hubApi.isAvailableRemotely(remoteImage);
 
             if (result) {
-                String msg = String.format("Image %s is available remotely", remoteImage.printIdentifier());
+                String msg = String.format("Image %s is available remotely on: %s", remoteImage.printIdentifier(), hubUrlToCheck);
                 log(listener, msg);
             }
 
