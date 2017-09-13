@@ -9,22 +9,22 @@ param
 
 	[Parameter(Mandatory=$True,ValueFromPipeline=$False,ValueFromPipelineByPropertyName=$False,HelpMessage="Path to install script.")]
     [string] $installScript,
-	
+
 	[Parameter(Mandatory=$True,ValueFromPipeline=$False,ValueFromPipelineByPropertyName=$False,HelpMessage="Path to xstudio.")]
     [string] $studioPath,
-	
+
 	[Parameter(Mandatory=$True,ValueFromPipeline=$False,ValueFromPipelineByPropertyName=$False,HelpMessage="Path to studio license file.")]
     [string] $studioLicensePath,
-	
+
 	[Parameter(Mandatory=$False,ValueFromPipeline=$False,ValueFromPipelineByPropertyName=$False,HelpMessage="Path to preinstall script.")]
     [string] $preinstallScript,
-	
+
 	[Parameter(Mandatory=$False,ValueFromPipeline=$False,ValueFromPipelineByPropertyName=$False,HelpMessage="Path to postsnapshot script.")]
     [string] $postSnapshotScript,
-	
+
 	[Parameter(Mandatory=$False,ValueFromPipeline=$False,ValueFromPipelineByPropertyName=$False,HelpMessage="Path to directory to be copied to shared vm folder.")]
     [string] $mountDir,
-	
+
     [Parameter(Mandatory=$False,ValueFromPipeline=$False,ValueFromPipelineByPropertyName=$False,HelpMessage="Path to virtualbox directory (where main exe is")]
     [string] $virtualboxDir = "C:\Program Files\Oracle\VirtualBox"
 )
