@@ -174,7 +174,8 @@ public class TesterCheckBuilder extends BaseBuilder {
     }
 
     private void deleteRepoFromLocalServer() throws IOException, InterruptedException {
-        checkTurboConfig();
+//        This is supposed to prevent accidental deletion from main hub (happened once). Will not be needed in final version
+//        checkTurboConfig();
         executeRepoDelete();
     }
 
