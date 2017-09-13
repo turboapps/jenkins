@@ -48,6 +48,7 @@ public class PushBuilder extends BaseBuilder {
     private final boolean overwriteOrganization;
     private final String hubUrls;
     private final boolean buildExe;
+    private final boolean forcePush;
 
 
     @DataBoundConstructor
@@ -58,7 +59,8 @@ public class PushBuilder extends BaseBuilder {
                        @Nullable String dateFormat,
                        boolean appendDate,
                        boolean incrementVersion,
-                       boolean buildExe) {
+                       boolean buildExe,
+                       boolean forcePush) {
         this.remoteImageStrategy = (remoteImageStrategy == null) ? RemoteImageNameStrategy.DO_NOT_USE : remoteImageStrategy;
         this.hubUrls = Util.fixEmptyAndTrim(hubUrls);
         this.organization = Util.fixEmptyAndTrim(organization);
@@ -68,6 +70,7 @@ public class PushBuilder extends BaseBuilder {
         this.appendDate = appendDate;
         this.incrementVersion = incrementVersion;
         this.buildExe = buildExe;
+        this.forcePush = forcePush;
     }
 
     @Override
@@ -117,7 +120,7 @@ public class PushBuilder extends BaseBuilder {
     }
 
     private boolean shouldAbort(Image remoteImage, SpoonBuild build, BuildListener listener) {
-        if (build.allowOverwrite) {
+        if (build.allowOverwrite || forcePush) {
             return false;
         }
 
@@ -192,6 +195,8 @@ public class PushBuilder extends BaseBuilder {
         return buildExe;
     }
 
+    public boolean getForcePush() { return forcePush; }
+
     @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
 
@@ -240,12 +245,14 @@ public class PushBuilder extends BaseBuilder {
                 boolean overwriteOrganization = false;
                 boolean incrementVersion = false;
                 boolean buildExe = false;
+                boolean forcePush = false;
 
                 if (pushJSON != null && !pushJSON.isNullObject()) {
                     String remoteImageStrategyName = pushJSON.getString("value");
                     remoteImageStrategy = RemoteImageNameStrategy.valueOf(remoteImageStrategyName);
                     hubUrls = getKeyOrDefault(formData, "hubUrls");
                     buildExe = getBoolOrDefault(formData, "buildExe");
+                    forcePush = getBoolOrDefault(formData, "forcePush");
                     organization = getKeyOrDefault(pushJSON, "organization");
                     overwriteOrganization = getBoolOrDefault(pushJSON, "overwriteOrganization");
                     remoteImageName = getKeyOrDefault(pushJSON, "remoteImageName");
@@ -263,7 +270,8 @@ public class PushBuilder extends BaseBuilder {
                         dateFormat,
                         appendDate,
                         incrementVersion,
-                        buildExe);
+                        buildExe,
+                        forcePush);
             } catch (JSONException ex) {
                 throw new IllegalStateException("Error while parsing data form", ex);
             }
