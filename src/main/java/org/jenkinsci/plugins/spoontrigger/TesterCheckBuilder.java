@@ -39,13 +39,13 @@ import static org.jenkinsci.plugins.spoontrigger.utils.Credentials.fillCredentia
 public class TesterCheckBuilder extends BaseBuilder {
 
     private static final String  CHECK_APP_URL = "/buildByToken/buildWithParameters?job=Check%20App&token=checkapp";
-    private static final int JOB_TRIGGER_HTTP_RESPONSE_CODE = 201;
+    private static final int JOB_TRIGGERED_HTTP_RESPONSE_CODE = 201;
     private static final String TRIGGER_PARAMETER_VM = "&VmMachines=";
     private static final String TRIGGER_PARAMETER_APP = "&app=";
     private static final String TRIGGER_PARAMETER_HUB = "&hub=";
 
     private Image imageToCheck;
-    private int expectedExitCode;
+    private Optional<Integer> expectedExitCode;
     private String hubURL;
     private String turboTesterServer;
     private String testVms;
@@ -61,7 +61,7 @@ public class TesterCheckBuilder extends BaseBuilder {
     @DataBoundConstructor
     public TesterCheckBuilder(int expectedExitCode, String testVms, String maxMinutesToWaitForResult, String credentialsId) {
         this.testVms = testVms;
-        this.expectedExitCode = expectedExitCode;
+        this.expectedExitCode = Optional.of(expectedExitCode);
         this.credentialsId = credentialsId;
         this.maxMinutesToWaitForResult = Integer.parseInt(maxMinutesToWaitForResult);
     }
@@ -97,7 +97,7 @@ public class TesterCheckBuilder extends BaseBuilder {
     private void triggerJenkinsJobAndCheckHTTPResponse() throws IOException {
         HttpURLConnection connection = prepareTesterServerConnection();
         int response = connection.getResponseCode();
-        if (JOB_TRIGGER_HTTP_RESPONSE_CODE != response) {
+        if (JOB_TRIGGERED_HTTP_RESPONSE_CODE != response) {
             throw new IllegalStateException("Tester server didn't accept the request and returned code " + response);
         }
         listener.getLogger().println("HTTP response code from tester server is: " + response);
@@ -138,7 +138,7 @@ public class TesterCheckBuilder extends BaseBuilder {
             BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new SmbFileInputStream(exitcodeFile)));
             int result  = Integer.parseInt(bufferedReader.readLine());
             String testResultMessage = "Test on machine " + testVm + " returned: " + result;
-            if (result != expectedExitCode)
+            if(expectedExitCode.isPresent() && result != expectedExitCode.get())
             {
                 throw new IllegalStateException(testResultMessage);
             }
@@ -204,7 +204,7 @@ public class TesterCheckBuilder extends BaseBuilder {
     }
 
     public int getExpectedExitCode() {
-        return expectedExitCode;
+        return expectedExitCode.get();
     }
 
     public String getTestVms() {
