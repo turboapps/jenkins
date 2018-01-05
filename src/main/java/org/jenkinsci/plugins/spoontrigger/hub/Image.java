@@ -12,10 +12,14 @@ public class Image {
 
 
     public final String repo;
-
     public final String namespace;
-
     public final String tag;
+
+    public Image(String namespace, String repo, String tag) {
+        this.namespace = namespace;
+        this.repo = repo;
+        this.tag = tag;
+    }
 
     public static Image parse(String imageName) {
         checkArgument(imageName != null, "imageName");
@@ -30,12 +34,6 @@ public class Image {
         String tag = matcher.group("tag");
 
         return new Image(namespace, repo, tag);
-    }
-
-    public Image(String namespace, String repo, String tag) {
-        this.namespace = namespace;
-        this.repo = repo;
-        this.tag = tag;
     }
 
     public String printIdentifier() {

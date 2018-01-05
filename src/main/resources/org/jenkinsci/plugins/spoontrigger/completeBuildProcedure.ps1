@@ -62,9 +62,33 @@ If($preinstallScript) { Copy-Item "$preinstallScript" ".\share\install\preInstal
 If($postSnapshotScript) { Copy-Item "$postSnapshotScript" ".\share\install\postSnapshot.ps1" }
 If($mountDir) { Copy-Item "$mountDir" ".\share" -Recurse }
 
-#Restore virtual machine snapshot
+$vmstate = & "$virtualboxDir\VBoxManage.exe" showvminfo $machine | Select-String -Pattern "State:"
+if(-Not $vmstate -match "powered off")
+{
+    #Turn virtual machine off
+    "Virtual Machine is not powered off. Doing it now."
+    & "$virtualboxDir\VBoxManage.exe" controlvm $machine poweroff
+}
+
 & "$virtualboxDir\VBoxManage.exe" snapshot $machine restore "turboBuild"
+
 & "$virtualboxDir\VBoxManage.exe" sharedfolder add $machine --name turboBuild --hostpath (Get-Item ".\share").FullName
+
+& "$virtualboxDir\VBoxManage.exe" startvm $machine
+
+while (!(Test-Path ".\share\buildDone"))
+{
+	Sleep 5
+}
+
+& "$virtualboxDir\VBoxManage.exe" controlvm $machine poweroff
+
+& "$virtualboxDir\VBoxManage.exe" snapshot $machine restore "turboBuild"
+
+if(Test-Path ".\share\output\image.txt")
+{
+  Copy-Item ".\share\output\image.txt" ".\image.txt"
+}
 
 #Extract image name, namespace and version
 $imageContent = Get-Content .\image.txt
@@ -74,23 +98,9 @@ $imageNamespace = $Matches['namespace']
 $imageAppName = $Matches['appname']
 $imageVersion = $Matches['version']
 
-#Run virtual machine to create the svm
-& "$virtualboxDir\VBoxManage.exe" startvm $machine
-
-while (!(Test-Path ".\share\buildDone"))
-{
-	Sleep 5
-}
-#Turn virtual machine off
-& "$virtualboxDir\VBoxManage.exe" controlvm $machine poweroff
-#Restore virtual machine snapshot
-& "$virtualboxDir\VBoxManage.exe" snapshot $machine restore "turboBuild"
-
 Copy-Item ".\share\output\image.svm" ".\$($imageNamespace)_$($imageAppName)_$($imageVersion).svm"
 Copy-Item ".\share\output\buildlog.txt" ".\buildlog_$($imageNamespace)_$($imageAppName)_$($imageVersion).log"
-
 Remove-Item ".\share" -Recurse
-Remove-Item ".\*.txt"
 
 Get-Content ".\buildlog_$($imageNamespace)_$($imageAppName)_$($imageVersion).log"
 

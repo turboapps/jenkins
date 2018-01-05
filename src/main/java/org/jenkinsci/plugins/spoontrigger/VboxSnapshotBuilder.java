@@ -31,7 +31,6 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -40,7 +39,6 @@ public class VboxSnapshotBuilder extends BaseBuilder {
     private static final String IMAGE_NAME_FILE = "image.txt";
     private static final String BUILD_SCRIPT_FILENAME = "buildScript.ps1";
     private static final String PS_MAIN_SCRIPT_FILENAME = "completeBuildProcedure.ps1";
-    private static final String LOCAL_OVERWRITE = "OVERWRITE";
     private transient String xStudioPath;
     private String studioLicensePath;
     private String vmName;
@@ -54,7 +52,6 @@ public class VboxSnapshotBuilder extends BaseBuilder {
     private Optional<Image> image;
     private String PSBuildScriptPath;
     private Boolean overwriteFlag;
-    private Boolean localOverwrite;
     private String buildScriptPath;
 
 
@@ -81,13 +78,16 @@ public class VboxSnapshotBuilder extends BaseBuilder {
             e.printStackTrace();
         }
         build.allowOverwrite = overwriteFlag;
-        loadImageNameFrom(build);
 
-        if (shouldAbort(build, listener)) return false;
-
-        loadImageNameFrom(build);
-
-        if (shouldAbort(build, listener)) return false;
+        loadImageNameFor(build);
+        if(!image.isPresent())
+        {
+            listener.getLogger().println("Image name not available before build. Will check again after snapshot completes.");
+        }
+        else
+        {
+            if (shouldAbort(build, listener)) return false;
+        }
 
         PSBuildScriptPath = copyResourceToWorkspace(build.getWorkspace().getRemote(), PS_MAIN_SCRIPT_FILENAME);
         buildScriptPath = copyResourceToWorkspace(build.getWorkspace().getRemote(), BUILD_SCRIPT_FILENAME);
@@ -103,6 +103,15 @@ public class VboxSnapshotBuilder extends BaseBuilder {
         generateBuildCommand();
         int buildReturnCode = takeVboxSnapshot(build, launcher, listener);
 
+        if(!image.isPresent())
+        {
+            listener.getLogger().println("Image name was not load before build. Trying to load again.");
+            loadImageNameFor(build);
+            if (shouldAbort(build, listener)) {
+                listener.getLogger().println("Image available on the hub. Aborting the build.");
+                return false;
+            }
+        }
         build.setOutputImage(image.get());
 
         importImageToLocalTurbo(commandDriver, build);
@@ -113,15 +122,18 @@ public class VboxSnapshotBuilder extends BaseBuilder {
     }
 
     private boolean shouldAbort(SpoonBuild build, BuildListener listener) {
-        boolean imageAvailableRemotely = isAvailableRemotely(this.image.get(), build, listener);
-        if(imageAvailableRemotely)
+        if(this.image.isPresent())
         {
-            if(!overwriteFlag)
+            boolean imageAvailableRemotely = isAvailableRemotely(this.image.get(), build, listener);
+            if(imageAvailableRemotely)
             {
-                build.setResult(Result.ABORTED);
-                return true;
+                if(!overwriteFlag)
+                {
+                    build.setResult(Result.ABORTED);
+                    return true;
+                }
+                listener.getLogger().println("Image available remotely, but overwrite flag is 'true'. Building anyway.");
             }
-            listener.getLogger().println("Image available remotely, but overwrite flag is 'true'. Building anyway.");
         }
         return false;
     }
@@ -170,7 +182,7 @@ public class VboxSnapshotBuilder extends BaseBuilder {
         return documentBuilder.parse(configurationXMLFile);
     }
 
-    private void loadImageNameFrom (SpoonBuild build) throws IOException {
+    private void loadImageNameFor(SpoonBuild build) throws IOException {
         String workspacePath = build.getWorkspace().getRemote();
         Path imageFilePath = Paths.get(workspacePath, IMAGE_NAME_FILE);
         if (imageFilePath.toFile().exists()) {
