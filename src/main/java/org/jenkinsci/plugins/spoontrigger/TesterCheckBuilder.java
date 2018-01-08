@@ -39,31 +39,38 @@ import static org.jenkinsci.plugins.spoontrigger.utils.Credentials.fillCredentia
 public class TesterCheckBuilder extends BaseBuilder {
 
     private static final String  CHECK_APP_URL = "/buildByToken/buildWithParameters?job=Check%20App&token=checkapp";
+    private static final String  UI_TEST_URL = "/buildByToken/buildWithParameters?job=UI%20Test%20App&token=uitest";
+    public static final String CHECK_APP_TEST_TYPE = "turbocheck";
+    public static final String UI_TEST_TEST_TYPE = "uitest";
     private static final int JOB_TRIGGERED_HTTP_RESPONSE_CODE = 201;
     private static final String TRIGGER_PARAMETER_VM = "&VmMachines=";
     private static final String TRIGGER_PARAMETER_APP = "&app=";
     private static final String TRIGGER_PARAMETER_HUB = "&hub=";
 
     private Image imageToCheck;
-    private Optional<Integer> expectedExitCode;
+
     private String hubURL;
     private String turboTesterServer;
+
+    private Optional<Integer> expectedExitCode;
     private String testVms;
+    private int maxMinutesToWaitForResult;
     private Optional<StandardUsernamePasswordCredentials> credentials;
+    private String testType;
 
     private URL testerRequestURL;
-    private int maxMinutesToWaitForResult;
     private SpoonBuild build;
     private Launcher launcher;
     private BuildListener listener;
     private final String credentialsId;
 
     @DataBoundConstructor
-    public TesterCheckBuilder(int expectedExitCode, String testVms, String maxMinutesToWaitForResult, String credentialsId) {
+    public TesterCheckBuilder(int expectedExitCode, String testVms, String maxMinutesToWaitForResult, String credentialsId, String testType) {
         this.testVms = testVms;
         this.expectedExitCode = Optional.of(expectedExitCode);
         this.credentialsId = credentialsId;
         this.maxMinutesToWaitForResult = Integer.parseInt(maxMinutesToWaitForResult);
+        this.testType = testType;
     }
 
     @Override
@@ -80,7 +87,11 @@ public class TesterCheckBuilder extends BaseBuilder {
         this.launcher = launcher;
         this.listener = listener;
 
+        System.out.println(this.testType);
+
+
         getImageToCheck();
+        System.out.println(imageToCheck.printIdentifier());
 
         triggerJenkinsJobAndCheckHTTPResponse();
 
@@ -92,6 +103,7 @@ public class TesterCheckBuilder extends BaseBuilder {
 
     private void getImageToCheck() {
         imageToCheck = build.getOutputImage().orNull();
+        imageToCheck = new Image("microsoft", "powerbi", null);
     }
 
     private void triggerJenkinsJobAndCheckHTTPResponse() throws IOException {
@@ -106,17 +118,24 @@ public class TesterCheckBuilder extends BaseBuilder {
     private HttpURLConnection prepareTesterServerConnection() throws IOException {
         String fullImageName = imageToCheck.printIdentifier();
         testVms = testVms.replaceAll(" ","");
-        generateTurboTesterURL(fullImageName);
+        if(testType.equals(UI_TEST_TEST_TYPE))
+        {
+            generateTurboTesterURL(fullImageName, UI_TEST_URL);
+        }
+        else
+        {
+            generateTurboTesterURL(fullImageName, CHECK_APP_URL);
+        }
         listener.getLogger().println("Tester server trigger URL: " + testerRequestURL);
         HttpURLConnection connection = (HttpURLConnection) testerRequestURL.openConnection();
         connection.setRequestMethod("GET");
         return connection;
     }
 
-    private void generateTurboTesterURL(String fullImageName) throws MalformedURLException {
+    private void generateTurboTesterURL(String fullImageName, String jobUrl) throws MalformedURLException {
         testerRequestURL = new URL("http://" +
                 turboTesterServer +
-                CHECK_APP_URL+
+                jobUrl+
                 TRIGGER_PARAMETER_VM +
                 testVms +
                 TRIGGER_PARAMETER_APP +
@@ -148,7 +167,8 @@ public class TesterCheckBuilder extends BaseBuilder {
 
     private String getSMBexitcodeFilePath(String testVm, String dashedImageName) {
         return "smb://" + getTurboTesterNameWithoutPort()
-                + "/" + "Results/CheckApp"
+                + "/" + "Results"
+                + "/" + ((testType.equals(UI_TEST_TEST_TYPE)) ? "uitest" : "CheckApp")
                 + "/" + dashedImageName
                 + "-" + testVm + "-"
                 + "exitcode.txt";
@@ -220,6 +240,10 @@ public class TesterCheckBuilder extends BaseBuilder {
         return credentialsId;
     }
 
+    public String getTestType() {
+        return testType;
+    }
+
     private Optional<StandardUsernamePasswordCredentials> getCredentials() throws IllegalStateException {
         if (Strings.isNullOrEmpty(this.credentialsId)) {
             return Optional.absent();
@@ -252,7 +276,7 @@ public class TesterCheckBuilder extends BaseBuilder {
 
         @Override
         public String getDisplayName() {
-            return "Execute turbo check on Turbotester server";
+            return "Execute tests on Turbotester server";
         }
 
         @Override

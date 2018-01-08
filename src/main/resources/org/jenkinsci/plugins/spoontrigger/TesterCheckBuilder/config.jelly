@@ -12,4 +12,10 @@
     <f:entry title="Credentials" field="credentialsId">
         <c:select/>
     </f:entry>
+    <f:entry name="testType" title="Test type" field="testType">
+        <select name="testType" class="setting-input">
+            <option value="turbocheck">Turbo Check only</option>
+            <option value="uitest">Scripted UI Test</option>
+        </select>
+    </f:entry>
 </j:jelly>
