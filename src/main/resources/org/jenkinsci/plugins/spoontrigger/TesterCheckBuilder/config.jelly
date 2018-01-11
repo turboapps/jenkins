@@ -14,8 +14,8 @@
     </f:entry>
     <f:entry name="testType" title="Test type" field="testType">
         <select name="testType" class="setting-input">
-            <option value="turbocheck">Turbo Check only</option>
-            <option value="uitest">Scripted UI Test</option>
+            <option value="turbocheck" selected="${instance.testType.equals('turbocheck')? 'true':null}">Turbo Check only</option>
+            <option value="uitest" selected="${instance.testType.equals('uitest')? 'true':null}">Scripted UI Test</option>
         </select>
     </f:entry>
 </j:jelly>

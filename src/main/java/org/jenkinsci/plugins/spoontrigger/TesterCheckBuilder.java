@@ -87,12 +87,7 @@ public class TesterCheckBuilder extends BaseBuilder {
         this.launcher = launcher;
         this.listener = listener;
 
-        System.out.println(this.testType);
-
-
         getImageToCheck();
-        System.out.println(imageToCheck.printIdentifier());
-
         triggerJenkinsJobAndCheckHTTPResponse();
 
         List<String> testVMsList = Arrays.asList(testVms.split("\\s*,\\s*"));
@@ -103,7 +98,6 @@ public class TesterCheckBuilder extends BaseBuilder {
 
     private void getImageToCheck() {
         imageToCheck = build.getOutputImage().orNull();
-        imageToCheck = new Image("microsoft", "powerbi", null);
     }
 
     private void triggerJenkinsJobAndCheckHTTPResponse() throws IOException {
@@ -145,7 +139,7 @@ public class TesterCheckBuilder extends BaseBuilder {
     }
 
     private void waitForAndReadResultFiles(List<String> testVMsList) throws InterruptedException, IOException {
-        String dashedImageName = imageToCheck.namespace + "-" + imageToCheck.repo + "-" + imageToCheck.tag;
+        String dashedImageName = (imageToCheck.printIdentifier()).replace("/","-").replace(":","-");
         NtlmPasswordAuthentication auth = new NtlmPasswordAuthentication("CODE",
                                                                         credentials.get().getUsername(),
                                                                         Secret.toString(credentials.get().getPassword()));
