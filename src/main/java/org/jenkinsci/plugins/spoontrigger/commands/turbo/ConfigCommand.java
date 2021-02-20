@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 
 public class ConfigCommand extends FilterOutputCommand {
 
-    private static final Pattern HUB_URL_PATTERN = Pattern.compile("^Hub server:\\s+(?<hubUrl>\\S+)$");
+    private static final Pattern HUB_URL_PATTERN = Pattern.compile("^Domain URL:\\s+(?<hubUrl>\\S+)$"); // todo: terrible. do not parse cli output looking for this information.
 
 
     private Optional<String> hub = Optional.absent();
