@@ -33,13 +33,18 @@ public class CheckCommand extends FilterOutputCommand {
             return this;
         }
 
+        /*
         public CommandBuilder screenshotPath(String screenshotPath) {
             this.screenshotPath = Optional.fromNullable(screenshotPath);
             return this;
-        }
+        }*/
 
         public CommandBuilder bootstrapDuration(String value) {
             this.bootstrapDuration = Optional.fromNullable(value);
+            if(!this.bootstrapDuration.isPresent()){
+                // default to 5-minute startup time since vm is slow
+                this.bootstrapDuration = Optional.fromNullable("0:5:0");
+            }
             return this;
         }
 
@@ -68,7 +73,7 @@ public class CheckCommand extends FilterOutputCommand {
 
             ArgumentListBuilder arguments = new ArgumentListBuilder(SPOON_CLIENT, "check")
                     .add(image.get().printIdentifier())
-                    .add("--enable-screencast");
+                    /*.add("--enable-screencast")*/;
 
             if (bootstrapDuration.isPresent()) {
                 arguments

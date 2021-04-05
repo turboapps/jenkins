@@ -48,7 +48,6 @@ public class VboxSnapshotBuilder extends BaseBuilder {
     private String mountDirectoryPath;
     private String configurationXMLPath;
     private String virtualboxDir;
-    private ArgumentListBuilder vboxSnapshotCommand;
     private Optional<Image> image;
     private String PSBuildScriptPath;
     private Boolean overwriteFlag;
@@ -100,8 +99,8 @@ public class VboxSnapshotBuilder extends BaseBuilder {
                 .listener(listener)
                 .build();
 
-        generateBuildCommand();
-        int buildReturnCode = takeVboxSnapshot(build, launcher, listener);
+        ArgumentListBuilder vboxSnapshotCommand = generateBuildCommand();
+        int buildReturnCode = takeVboxSnapshot(build, launcher, listener, vboxSnapshotCommand);
 
         if(!image.isPresent())
         {
@@ -138,7 +137,7 @@ public class VboxSnapshotBuilder extends BaseBuilder {
         return false;
     }
 
-    private int takeVboxSnapshot(SpoonBuild build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
+    private int takeVboxSnapshot(SpoonBuild build, Launcher launcher, BuildListener listener, ArgumentListBuilder vboxSnapshotCommand) throws IOException, InterruptedException {
         return runCmdCommand(build, launcher, listener, vboxSnapshotCommand, listener.getLogger());
     }
 
@@ -206,7 +205,7 @@ public class VboxSnapshotBuilder extends BaseBuilder {
         mountDirectoryPath = mountDirectoryPath.isEmpty() ? " " : mountDirectoryPath;
     }
 
-    private void generateBuildCommand() {
+    private ArgumentListBuilder generateBuildCommand() {
         ArgumentListBuilder command = new ArgumentListBuilder();
         command.addTokenized("Powershell -File ");
         command.add(PSBuildScriptPath,
@@ -219,7 +218,7 @@ public class VboxSnapshotBuilder extends BaseBuilder {
                 postSnapshotScriptPath,
                 mountDirectoryPath,
                 virtualboxDir);
-        vboxSnapshotCommand = command.toWindowsCommand();
+        return command.toWindowsCommand();
     }
 
     private void importImageToLocalTurbo(CommandDriver commandDriver, SpoonBuild build) {

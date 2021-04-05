@@ -76,6 +76,12 @@ if(-Not $vmstate -match "powered off")
 
 & "$virtualboxDir\VBoxManage.exe" startvm $machine
 
+#
+# the vm has a startup script defined, buildScript.bat, which runs when the vm starts. 
+# this just executes \\vboxsvr\turboBuild\tools\buildScript.ps1 (sourced from "C:\Source\jenkins\src\main\resources\org\jenkinsci\plugins\spoontrigger\buildScript.ps1") which drives the process.
+# when complete, it writes a "buildDone" file to communicate to this script that it can proceed.
+#
+
 while (!(Test-Path ".\share\buildDone"))
 {
 	Sleep 5
